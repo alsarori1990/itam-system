@@ -19,6 +19,11 @@ import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
 import reportsRouter from './routes/reports.js';
 import auditRouter from './routes/audit.js';
+import configRouter from './routes/config.js';
+
+// Import services
+import emailService from './services/emailService.js';
+import Config from './models/Config.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,6 +84,19 @@ const connectDB = async () => {
 // Connect to database
 connectDB();
 
+// Load SMTP settings from database on startup
+connectDB().then(async () => {
+  try {
+    const smtpConfig = await Config.findOne({ key: 'smtp_settings' });
+    if (smtpConfig && smtpConfig.value) {
+      emailService.configure(smtpConfig.value);
+      console.log('📧 Email service initialized');
+    }
+  } catch (error) {
+    console.error('⚠️ Failed to load SMTP settings:', error.message);
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -99,6 +117,7 @@ app.use('/api/simCards', simCardsRouter); // Alternative route for frontend comp
 app.use('/api/users', usersRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/audit', auditRouter);
+app.use('/api/config', configRouter);
 
 // 404 handler
 app.use((req, res) => {

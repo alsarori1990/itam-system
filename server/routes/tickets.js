@@ -1,6 +1,7 @@
 import express from 'express';
 import Ticket from '../models/Ticket.js';
 import { authenticateToken } from '../middleware/auth.js';
+import emailService from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -15,6 +16,14 @@ router.post('/public', async (req, res) => {
     ticketData.id = `TKT-PUB-${timestamp}-${randomSuffix}`;
     const ticket = new Ticket(ticketData);
     await ticket.save();
+    
+    // إرسال بريد إلكتروني للمسؤولين
+    if (emailService.isConfigured()) {
+      emailService.sendNewTicketNotification(ticket).catch(err => {
+        console.error('Failed to send email notification:', err);
+      });
+    }
+    
     res.status(201).json(ticket);
   } catch (error) {
     console.error('Error creating public ticket:', error);

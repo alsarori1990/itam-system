@@ -210,9 +210,53 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const handleSmtpSave = () => {
-      updateSmtpSettings(smtpForm);
-      alert('تم حفظ إعدادات البريد الإلكتروني بنجاح.');
+  const handleSmtpSave = async () => {
+      try {
+          const response = await fetch('http://72.62.149.231/api/config/smtp', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              },
+              body: JSON.stringify(smtpForm)
+          });
+          
+          if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || 'فشل في حفظ الإعدادات');
+          }
+          
+          const data = await response.json();
+          updateSmtpSettings(smtpForm);
+          alert('✅ ' + data.message);
+      } catch (error) {
+          console.error('Failed to save SMTP settings:', error);
+          alert('❌ ' + (error.message || 'فشل في حفظ الإعدادات'));
+      }
+  };
+
+  const handleSmtpTest = async () => {
+      try {
+          const response = await fetch('http://72.62.149.231/api/config/smtp/test', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              },
+              body: JSON.stringify({})
+          });
+          
+          if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || 'فشل الاختبار');
+          }
+          
+          const data = await response.json();
+          alert('✅ ' + data.message);
+      } catch (error) {
+          console.error('SMTP test failed:', error);
+          alert('❌ ' + (error.message || 'فشل في اختبار الاتصال'));
+      }
   };
 
   const executeDelete = () => {
@@ -423,7 +467,10 @@ export const Settings: React.FC = () => {
                         <p className="text-[10px] text-slate-400 mt-1">افصل بين العناوين بفاصلة (,)</p>
                     </div>
                 </div>
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-end gap-3">
+                    <button onClick={handleSmtpTest} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors" disabled={!smtpForm.enabled}>
+                        اختبار الاتصال
+                    </button>
                     <button onClick={handleSmtpSave} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors" disabled={!smtpForm.enabled}>
                         حفظ إعدادات البريد
                     </button>
