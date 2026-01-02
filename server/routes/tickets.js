@@ -4,6 +4,24 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// @route   POST /api/tickets/public
+// @desc    Create new ticket from public portal
+// @access  Public (no authentication required)
+router.post('/public', async (req, res) => {
+  try {
+    const ticketData = req.body;
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 1000);
+    ticketData.id = `TKT-PUB-${timestamp}-${randomSuffix}`;
+    const ticket = new Ticket(ticketData);
+    await ticket.save();
+    res.status(201).json(ticket);
+  } catch (error) {
+    console.error('Error creating public ticket:', error);
+    res.status(500).json({ error: 'Server error', details: error.message });
+  }
+});
+
 // @route   GET /api/tickets
 // @desc    Get all tickets
 // @access  Private
@@ -36,16 +54,18 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/tickets
-// @desc    Create new ticket
+// @desc    Create new ticket (authenticated users from inside system)
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const ticketData = req.body;
     
-    // Generate ID if not provided
+    // Always generate ID on backend to avoid conflicts
     if (!ticketData.id) {
-      const count = await Ticket.countDocuments();
-      ticketData.id = `TKT-${Date.now()}-${count + 1}`;
+      const year = new Date().getFullYear().toString().substr(-2);
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 1000);
+      ticketData.id = `TKT-${year}-${String(randomSuffix).padStart(3, '0')}`;
     }
     
     const ticket = new Ticket(ticketData);
