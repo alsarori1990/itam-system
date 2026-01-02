@@ -87,6 +87,7 @@ app.use('/api/assets', assetsRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/sim-cards', simCardsRouter);
+app.use('/api/simCards', simCardsRouter); // Alternative route for frontend compatibility
 app.use('/api/users', usersRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/audit', auditRouter);
