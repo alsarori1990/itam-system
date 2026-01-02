@@ -170,6 +170,14 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async deleteTicket(ticketId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    await this.handleResponse(response);
+  }
+
   // SIM Cards
   async getSimCards(): Promise<any[]> {
     const response = await fetch(`${API_BASE_URL}/simCards`, {

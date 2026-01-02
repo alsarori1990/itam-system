@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { Ticket, TicketStatus, TicketPriority, TicketChannel } from '../types';
-import { Search, Plus, Filter, MessageSquare, Clock, User, CheckCircle2, AlertCircle, PlayCircle, XCircle, MoreVertical, Edit2, Calendar, ArrowRight, Inbox, CheckSquare, Activity, Wrench, FileText, FileSpreadsheet, Download, Upload, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Filter, MessageSquare, Clock, User, CheckCircle2, AlertCircle, PlayCircle, XCircle, MoreVertical, Edit2, Calendar, ArrowRight, Inbox, CheckSquare, Activity, Wrench, FileText, FileSpreadsheet, Download, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useDebounce } from '../utils/performanceUtils';
 
 interface TicketManagerProps {
@@ -10,7 +10,7 @@ interface TicketManagerProps {
 }
 
 export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) => {
-  const { tickets = [], assets = [], config, addTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, getTicketHistory, getStats, hasPermission } = useApp();
+  const { tickets = [], assets = [], config, addTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, deleteTicket, getTicketHistory, getStats, hasPermission } = useApp();
   
   // States
   const [view, setView] = useState<'list' | 'detail' | 'create'>('list');
@@ -588,6 +588,16 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                         {hasPermission('tickets', 'change_status_closed', activeTicket) && (activeTicket.status === TicketStatus.RESOLVED) && (
                              <button onClick={() => updateTicketStatus(activeTicket.id, TicketStatus.CLOSED)} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-slate-800 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-slate-900">
                                 <XCircle size={18} /> إغلاق التذكرة
+                            </button>
+                        )}
+                        {hasPermission('tickets', 'delete', activeTicket) && (
+                             <button onClick={() => {
+                                if (window.confirm(`هل أنت متأكد من حذف التذكرة ${activeTicket.id}؟`)) {
+                                    deleteTicket(activeTicket.id);
+                                    setView('list');
+                                }
+                             }} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-red-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-red-700">
+                                <Trash2 size={18} /> حذف
                             </button>
                         )}
                     </div>

@@ -8,7 +8,7 @@ import apiService from '../services/apiService';
 const INITIAL_PERMISSIONS_MATRIX: Record<UserRole, RolePermissions> = {
   [UserRole.SUPER_ADMIN]: {
     assets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
-    tickets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, assign: { scope: 'GLOBAL' }, change_status_closed: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
+    tickets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, assign: { scope: 'GLOBAL' }, change_status_closed: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
     subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' } },
     reports: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' } },
     settings: { update: { scope: 'GLOBAL' } },
@@ -88,6 +88,7 @@ interface AppContextType {
   addTicketsBulk: (ticketsData: Partial<Ticket>[]) => void;
   updateTicketStatus: (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => Promise<void>;
   adjustTicketTime: (id: string, field: 'receivedAt' | 'startedAt' | 'resolvedAt', newTime: string, reason: string) => void;
+  deleteTicket: (id: string) => Promise<void>;
   
   // Subscription Methods
   addSubscription: (sub: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => Promise<void>;
@@ -767,6 +768,20 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     logSystemEvent('TICKET_TIME_ADJUST', `تعديل ${field} يدويًا`, undefined, id, undefined, reason);
   };
 
+  const deleteTicket = async (id: string) => {
+    const ticket = tickets.find(t => t.id === id);
+    if (!ticket || !hasPermission('tickets', 'delete', ticket)) return;
+    try {
+        await apiService.deleteTicket(id);
+        setTickets(prev => prev.filter(t => t.id !== id));
+        logSystemEvent('TICKET_DELETE', `تم حذف التذكرة ${id}`);
+        addNotification(`تم حذف التذكرة ${id} بنجاح`, 'success');
+    } catch (error) {
+        console.error('Failed to delete ticket:', error);
+        addNotification('فشل في حذف التذكرة', 'error');
+    }
+  };
+
   const addSubscription = async (subData: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => {
     if (!hasPermission('subscriptions', 'create')) return;
     try {
@@ -924,7 +939,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         assets, tickets, subscriptions, renewals, subAssignments, simCards, config, auditLog, 
         currentUser, allUsers, rolePermissions, isAuthenticated, switchUser, loginAsUser, login, logout, hasPermission, updatePermission, manageUser,
         addAsset, addAssetsBulk, updateAsset, deleteAsset, 
-        addTicket, submitPublicTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime,
+        addTicket, submitPublicTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, deleteTicket,
         addSubscription, addRenewal, updateSubscription,
         addSimCard, updateSimCard, deleteSimCard,
         updateConfig, updateCode, updateSmtpSettings, logAction, 
