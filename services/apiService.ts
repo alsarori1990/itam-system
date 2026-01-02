@@ -60,6 +60,13 @@ class ApiService {
     localStorage.removeItem('authToken');
   }
 
+  async getCurrentUser(): Promise<AuthResponse['user']> {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
   // Users
   async getUsers(): Promise<AppUser[]> {
     const response = await fetch(`${API_BASE_URL}/users`, {

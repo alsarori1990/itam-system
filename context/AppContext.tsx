@@ -405,17 +405,38 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   // Auto-login on page refresh if valid token exists
   useEffect(() => {
       const token = localStorage.getItem('authToken');
-      if (token && !isAuthenticated) {
-          setIsAuthenticated(true);
+      if (token && !isAuthenticated && !currentUser) {
+          // Verify token and get user data
+          apiService.getCurrentUser()
+              .then(userData => {
+                  const user: AppUser = {
+                      id: userData.id,
+                      name: userData.name,
+                      email: userData.email,
+                      roles: userData.roles as UserRole[],
+                      branches: userData.branches || [],
+                      isActive: true,
+                      lastLogin: new Date().toISOString(),
+                      isMfaEnabled: userData.isMfaEnabled,
+                  };
+                  setCurrentUser(user);
+                  setIsAuthenticated(true);
+              })
+              .catch(() => {
+                  // Token invalid, clear it
+                  apiService.logout();
+                  setIsAuthenticated(false);
+                  setCurrentUser(null);
+              });
       }
   }, []);
 
   // Load data when authentication status changes
   useEffect(() => {
-      if (isAuthenticated) {
+      if (isAuthenticated && currentUser) {
           loadAllData();
       }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
       if (!currentUser || !currentUser.roles) return false; // Guard clause for null user
