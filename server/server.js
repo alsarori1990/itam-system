@@ -14,7 +14,7 @@ dotenv.config();
 import assetsRouter from './routes/assets.js';
 import ticketsRouter from './routes/tickets.js';
 import subscriptionsRouter from './routes/subscriptions.js';
-import simCardsRouter from './routes/simCards.js';
+import simCardsRouter from './routes/simcards.js';
 import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
 import reportsRouter from './routes/reports.js';
