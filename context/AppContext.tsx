@@ -250,22 +250,46 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   // Play notification sound for new portal tickets
   const playNotificationSound = () => {
     try {
-      // Create a simple beep sound using Web Audio API
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
       
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      // Create 3 beeps pattern over 3 seconds
+      const beepTimes = [0, 0.8, 1.6]; // Three beeps at different times
       
-      oscillator.frequency.value = 800; // Frequency in Hz
-      oscillator.type = 'sine';
+      beepTimes.forEach((startTime) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Higher frequency for more attention-grabbing sound
+        oscillator.frequency.value = 1200; // Hz (higher pitch)
+        oscillator.type = 'square'; // Square wave for more harsh/alert sound
+        
+        // Louder volume
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + startTime + 0.4);
+        
+        oscillator.start(audioContext.currentTime + startTime);
+        oscillator.stop(audioContext.currentTime + startTime + 0.4);
+      });
       
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      // Add a longer final beep
+      const finalOscillator = audioContext.createOscillator();
+      const finalGain = audioContext.createGain();
       
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
+      finalOscillator.connect(finalGain);
+      finalGain.connect(audioContext.destination);
+      
+      finalOscillator.frequency.value = 1000;
+      finalOscillator.type = 'square';
+      
+      finalGain.gain.setValueAtTime(0.6, audioContext.currentTime + 2.4);
+      finalGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3.0);
+      
+      finalOscillator.start(audioContext.currentTime + 2.4);
+      finalOscillator.stop(audioContext.currentTime + 3.0);
+      
     } catch (error) {
       console.error('Failed to play notification sound:', error);
     }
