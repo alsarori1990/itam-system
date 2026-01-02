@@ -8,7 +8,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
-  const { login, allUsers } = useApp();
+  const { login, allUsers = [] } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -60,9 +60,9 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
                         <div className="relative">
                             <Mail className="absolute right-4 top-3.5 text-slate-400" size={20} />
                             <input 
-                                type="email" 
+                                type="text" 
                                 className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all"
-                                placeholder="name@company.com"
+                                placeholder="admin أو name@company.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />

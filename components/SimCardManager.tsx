@@ -25,7 +25,7 @@ const getFieldLabel = (field: string) => {
 };
 
 export const SimCardManager: React.FC<SimCardManagerProps> = ({ initialFilters }) => {
-  const { simCards, config, addSimCard, updateSimCard, deleteSimCard, getSimHistory, hasPermission } = useApp();
+  const { simCards = [], config, addSimCard, updateSimCard, deleteSimCard, getSimHistory, hasPermission } = useApp();
   
   const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
   const [selectedSim, setSelectedSim] = useState<SimCard | null>(null);

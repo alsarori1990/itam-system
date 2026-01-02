@@ -5,7 +5,7 @@ import { FileSpreadsheet, Printer, MapPin, Server, CheckCircle2, DollarSign, Use
 import { TicketStatus, BillingCycle, Asset, Ticket, Subscription, AppUser } from '../types';
 
 export const SmartReports: React.FC = () => {
-  const { assets, tickets, subscriptions, renewals, config, allUsers } = useApp();
+  const { assets = [], tickets = [], subscriptions = [], renewals = [], config, allUsers = [] } = useApp();
   const [activeTab, setActiveTab] = useState<'ASSETS' | 'TICKETS' | 'SUBSCRIPTIONS'>('ASSETS');
   
   // Date Filter State

@@ -5,7 +5,7 @@ import { UserRole, AppUser, Resource, PermissionAction, PermissionScope } from '
 import { Users, Plus, Edit, Trash2, ShieldCheck, MapPin, Mail, User, X, CheckCircle2, Lock, Unlock, Eye, FilePlus, Save, LayoutGrid } from 'lucide-react';
 
 export const UserManager: React.FC = () => {
-  const { allUsers, currentUser, manageUser, config, loginAsUser, rolePermissions, updatePermission } = useApp();
+  const { allUsers = [], currentUser, manageUser, config, loginAsUser, rolePermissions, updatePermission } = useApp();
   const [activeTab, setActiveTab] = useState<'USERS' | 'ROLES'>('USERS');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -72,7 +72,7 @@ export const UserManager: React.FC = () => {
       }
   };
 
-  if (!currentUser.roles.includes(UserRole.SUPER_ADMIN)) {
+  if (!currentUser?.roles?.includes(UserRole.SUPER_ADMIN)) {
       return (
           <div className="flex flex-col items-center justify-center h-96 text-slate-400">
               <ShieldCheck size={64} className="mb-4 text-slate-300"/>

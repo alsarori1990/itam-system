@@ -266,8 +266,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           setCurrentUser(user);
           setIsAuthenticated(true);
           
-          // Load all users after login
-          loadUsers();
+          // Load all data after successful login
+          await loadAllData();
           return true;
       } catch (error) {
           console.error('Login failed:', error);
@@ -277,60 +277,74 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   const logout = () => { 
       apiService.logout();
-      setIsAuthenticated(false); 
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      // Clear all data on logout
+      setAssets([]);
+      setTickets([]);
+      setSubscriptions([]);
+      setSimCards([]);
+      setAllUsers([]);
+      setAuditLog([]);
   };
 
   const loadUsers = async () => {
       try {
           const users = await apiService.getUsers();
-          setAllUsers(users);
+          setAllUsers(Array.isArray(users) ? users : []);
       } catch (error) {
           console.error('Failed to load users:', error);
+          setAllUsers([]);
       }
   };
 
   const loadAssets = async () => {
       try {
           const assets = await apiService.getAssets();
-          setAssets(assets);
+          setAssets(Array.isArray(assets) ? assets : []);
       } catch (error) {
           console.error('Failed to load assets:', error);
+          setAssets([]);
       }
   };
 
   const loadTickets = async () => {
       try {
           const tickets = await apiService.getTickets();
-          setTickets(tickets);
+          setTickets(Array.isArray(tickets) ? tickets : []);
       } catch (error) {
           console.error('Failed to load tickets:', error);
+          setTickets([]);
       }
   };
 
   const loadSimCards = async () => {
       try {
           const simCards = await apiService.getSimCards();
-          setSimCards(simCards);
+          setSimCards(Array.isArray(simCards) ? simCards : []);
       } catch (error) {
           console.error('Failed to load sim cards:', error);
+          setSimCards([]);
       }
   };
 
   const loadSubscriptions = async () => {
       try {
           const subscriptions = await apiService.getSubscriptions();
-          setSubscriptions(subscriptions);
+          setSubscriptions(Array.isArray(subscriptions) ? subscriptions : []);
       } catch (error) {
           console.error('Failed to load subscriptions:', error);
+          setSubscriptions([]);
       }
   };
 
   const loadAuditLogs = async () => {
       try {
           const auditLogs = await apiService.getAuditLogs();
-          setAuditLog(auditLogs);
+          setAuditLog(Array.isArray(auditLogs) ? auditLogs : []);
       } catch (error) {
           console.error('Failed to load audit logs:', error);
+          setAuditLog([]);
       }
   };
 
@@ -388,22 +402,20 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       if (user) { setCurrentUser(user); setIsAuthenticated(true); }
   };
 
-  // Load initial data on app start
+  // Auto-login on page refresh if valid token exists
   useEffect(() => {
       const token = localStorage.getItem('authToken');
       if (token && !isAuthenticated) {
-          // Auto-login if token exists
           setIsAuthenticated(true);
-          loadAllData(); // Load all data when token exists
       }
-  }, [isAuthenticated]);
+  }, []);
 
-  // Load data when user logs in successfully  
+  // Load data when authentication status changes
   useEffect(() => {
-      if (isAuthenticated && currentUser) {
+      if (isAuthenticated) {
           loadAllData();
       }
-  }, [isAuthenticated, currentUser]);
+  }, [isAuthenticated]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
       if (!currentUser || !currentUser.roles) return false; // Guard clause for null user

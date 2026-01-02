@@ -10,7 +10,7 @@ interface SubscriptionManagerProps {
 }
 
 export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initialFilters }) => {
-  const { subscriptions, renewals, config, addSubscription, addRenewal, getSubscriptionHistory, hasPermission } = useApp();
+  const { subscriptions = [], renewals = [], config, addSubscription, addRenewal, getSubscriptionHistory, hasPermission } = useApp();
   
   const [view, setView] = useState<'list' | 'detail' | 'create' | 'renew'>('list');
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);

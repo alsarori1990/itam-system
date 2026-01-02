@@ -10,7 +10,7 @@ interface TicketManagerProps {
 }
 
 export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) => {
-  const { tickets, assets, config, addTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, getTicketHistory, getStats, hasPermission } = useApp();
+  const { tickets = [], assets = [], config, addTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, getTicketHistory, getStats, hasPermission } = useApp();
   
   // States
   const [view, setView] = useState<'list' | 'detail' | 'create'>('list');

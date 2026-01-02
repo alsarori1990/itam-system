@@ -19,7 +19,7 @@ interface DashboardProps {
 
 // Memoized Dashboard for better performance
 const DashboardComponent: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { assets, tickets, subscriptions, renewals } = useApp();
+  const { assets = [], tickets = [], subscriptions = [], renewals = [] } = useApp();
 
   // --- Calculations (Memoized for Performance) ---
 

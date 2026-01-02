@@ -46,7 +46,7 @@ const getActionStyle = (type: string) => {
 };
 
 export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) => {
-  const { assets, deleteAsset, addAssetsBulk, config, getAssetHistory, isMfaEnabled, hasPermission } = useApp();
+  const { assets = [], deleteAsset, addAssetsBulk, config, getAssetHistory, isMfaEnabled, hasPermission } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce search for performance
   const [showFilters, setShowFilters] = useState(false);
