@@ -54,10 +54,10 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Rate limiting
+// Rate limiting - Increased limits for development/testing
 const limiter = rateLimit({
-  windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000,
-  max: process.env.RATE_LIMIT_MAX || 100,
+  windowMs: (process.env.RATE_LIMIT_WINDOW || 1) * 60 * 1000, // 1 minute window
+  max: process.env.RATE_LIMIT_MAX || 1000, // 1000 requests per minute
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
