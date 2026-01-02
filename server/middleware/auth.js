@@ -78,3 +78,6 @@ function checkUserPermission(user, resource, action) {
   
   return false;
 }
+
+// Export alias for compatibility with route files
+export const authenticateToken = authMiddleware;
