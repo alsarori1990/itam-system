@@ -84,25 +84,25 @@ interface AppContextType {
   manageUser: (action: 'add' | 'update' | 'delete', userData: AppUser) => Promise<void>;
 
   // Asset Methods
-  addAsset: (asset: Asset) => void;
+  addAsset: (asset: Asset) => Promise<void>;
   addAssetsBulk: (assetsData: Partial<Asset>[]) => void;
-  updateAsset: (id: string, updated: Partial<Asset>) => void;
-  deleteAsset: (id: string) => void;
+  updateAsset: (id: string, updated: Partial<Asset>) => Promise<void>;
+  deleteAsset: (id: string) => Promise<void>;
   
   // Ticket Methods
-  addTicket: (ticket: Omit<Ticket, 'id' | 'status' | 'receivedAt'> & { receivedAt?: string }) => void;
+  addTicket: (ticket: Omit<Ticket, 'id' | 'status' | 'receivedAt'> & { receivedAt?: string }) => Promise<void>;
   submitPublicTicket: (ticketData: Partial<Ticket>) => string;
   addTicketsBulk: (ticketsData: Partial<Ticket>[]) => void;
-  updateTicketStatus: (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => void;
+  updateTicketStatus: (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => Promise<void>;
   adjustTicketTime: (id: string, field: 'receivedAt' | 'startedAt' | 'resolvedAt', newTime: string, reason: string) => void;
   
   // Subscription Methods
-  addSubscription: (sub: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => void;
+  addSubscription: (sub: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => Promise<void>;
   addRenewal: (subId: string, renewal: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => void;
   updateSubscription: (id: string, updated: Partial<Subscription>) => void;
 
   // SIM Card Methods
-  addSimCard: (sim: Omit<SimCard, 'id'>) => void;
+  addSimCard: (sim: Omit<SimCard, 'id'>) => Promise<void>;
   updateSimCard: (id: string, updated: Partial<SimCard>) => void;
   deleteSimCard: (id: string) => void;
   
@@ -446,6 +446,63 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       }
   };
 
+  const loadAssets = async () => {
+      try {
+          const assets = await apiService.getAssets();
+          setAssets(assets);
+      } catch (error) {
+          console.error('Failed to load assets:', error);
+      }
+  };
+
+  const loadTickets = async () => {
+      try {
+          const tickets = await apiService.getTickets();
+          setTickets(tickets);
+      } catch (error) {
+          console.error('Failed to load tickets:', error);
+      }
+  };
+
+  const loadSimCards = async () => {
+      try {
+          const simCards = await apiService.getSimCards();
+          setSimCards(simCards);
+      } catch (error) {
+          console.error('Failed to load sim cards:', error);
+      }
+  };
+
+  const loadSubscriptions = async () => {
+      try {
+          const subscriptions = await apiService.getSubscriptions();
+          setSubscriptions(subscriptions);
+      } catch (error) {
+          console.error('Failed to load subscriptions:', error);
+      }
+  };
+
+  const loadAuditLogs = async () => {
+      try {
+          const auditLogs = await apiService.getAuditLogs();
+          setAuditLog(auditLogs);
+      } catch (error) {
+          console.error('Failed to load audit logs:', error);
+      }
+  };
+
+  // Load all data function
+  const loadAllData = async () => {
+      await Promise.all([
+          loadUsers(),
+          loadAssets(),
+          loadTickets(),
+          loadSimCards(),
+          loadSubscriptions(),
+          loadAuditLogs()
+      ]);
+  };
+
   const manageUser = async (action: 'add' | 'update' | 'delete', userData: AppUser) => {
       try {
           if (action === 'add') {
@@ -494,9 +551,16 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       if (token && !isAuthenticated) {
           // Auto-login if token exists
           setIsAuthenticated(true);
-          loadUsers();
+          loadAllData(); // Load all data when token exists
       }
   }, [isAuthenticated]);
+
+  // Load data when user logs in successfully  
+  useEffect(() => {
+      if (isAuthenticated && currentUser.id) {
+          loadAllData();
+      }
+  }, [isAuthenticated, currentUser.id]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
       for (const role of currentUser.roles) {
@@ -653,19 +717,27 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   };
 
   // ... CRUD Operations
-  const addAsset = (asset: Asset) => {
+  const addAsset = async (asset: Asset) => {
     if (!hasPermission('assets', 'create')) return;
-    const typeCode = config.typeCodes[asset.type] || 'UNK';
-    const locCode = config.locationCodes[asset.location] || 'UNK';
-    const year = new Date().getFullYear().toString().substr(-2);
-    const sequenceKey = `${typeCode}-${year}`;
-    const currentSeq = sequences[sequenceKey] || 0;
-    const nextSeq = currentSeq + 1;
-    setSequences(prev => ({ ...prev, [sequenceKey]: nextSeq }));
-    const realId = `${config.companyPrefix}-${typeCode}-${locCode}-${year}-${nextSeq.toString().padStart(4, '0')}`;
-    const newAsset = { ...asset, id: realId };
-    setAssets(prev => [newAsset, ...prev]);
-    logSystemEvent('CREATE', `تم إنشاء الأصل الجديد ${newAsset.name}`, realId);
+    try {
+        const typeCode = config.typeCodes[asset.type] || 'UNK';
+        const locCode = config.locationCodes[asset.location] || 'UNK';
+        const year = new Date().getFullYear().toString().substr(-2);
+        const sequenceKey = `${typeCode}-${year}`;
+        const currentSeq = sequences[sequenceKey] || 0;
+        const nextSeq = currentSeq + 1;
+        setSequences(prev => ({ ...prev, [sequenceKey]: nextSeq }));
+        const realId = `${config.companyPrefix}-${typeCode}-${locCode}-${year}-${nextSeq.toString().padStart(4, '0')}`;
+        const assetWithId = { ...asset, id: realId };
+        
+        const newAsset = await apiService.createAsset(assetWithId);
+        setAssets(prev => [newAsset, ...prev]);
+        logSystemEvent('CREATE', `تم إنشاء الأصل الجديد ${newAsset.name}`, realId);
+        addNotification(`تم إضافة الأصل ${newAsset.name} بنجاح`, 'success');
+    } catch (error) {
+        console.error('Failed to add asset:', error);
+        addNotification('فشل في إضافة الأصل', 'error');
+    }
   };
 
   const addAssetsBulk = (assetsData: Partial<Asset>[]) => {
@@ -693,35 +765,56 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       logSystemEvent('CREATE', `تم استيراد ${newAssets.length} أصل من ملف خارجي.`);
   };
 
-  const updateAsset = (id: string, updated: Partial<Asset>) => {
+  const updateAsset = async (id: string, updated: Partial<Asset>) => {
     const oldAsset = assets.find(a => a.id === id);
     if (!oldAsset) return;
     if (!hasPermission('assets', 'update', oldAsset)) return;
-    const changes = calculateDiff(oldAsset, updated, ['name', 'type', 'brand', 'serialNumber', 'status', 'assignedTo', 'location']);
-    let actionType: AuditActionType = 'UPDATE';
-    if (changes.some(c => c.fieldName === 'status')) actionType = 'STATUS_CHANGE';
-    setAssets(prev => prev.map(a => a.id === id ? { ...a, ...updated, lastUpdated: new Date().toISOString() } : a));
-    if (changes.length > 0) logSystemEvent(actionType, `تم تعديل ${changes.length} حقل/حقول`, id, undefined, changes);
+    try {
+        const updatedAsset = await apiService.updateAsset(id, updated);
+        const changes = calculateDiff(oldAsset, updated, ['name', 'type', 'brand', 'serialNumber', 'status', 'assignedTo', 'location']);
+        let actionType: AuditActionType = 'UPDATE';
+        if (changes.some(c => c.fieldName === 'status')) actionType = 'STATUS_CHANGE';
+        setAssets(prev => prev.map(a => a.id === id ? updatedAsset : a));
+        if (changes.length > 0) logSystemEvent(actionType, `تم تعديل ${changes.length} حقل/حقول`, id, undefined, changes);
+        addNotification(`تم تحديث الأصل بنجاح`, 'success');
+    } catch (error) {
+        console.error('Failed to update asset:', error);
+        addNotification('فشل في تحديث الأصل', 'error');
+    }
   };
 
-  const deleteAsset = (id: string) => {
+  const deleteAsset = async (id: string) => {
     const asset = assets.find(a => a.id === id);
     if (!asset) return;
     if (!hasPermission('assets', 'delete', asset)) return;
-    setAssets(prev => prev.filter(a => a.id !== id));
-    logSystemEvent('DELETE', `تم حذف الأصل ${asset.name} نهائياً`, id);
+    try {
+        await apiService.deleteAsset(id);
+        setAssets(prev => prev.filter(a => a.id !== id));
+        logSystemEvent('DELETE', `تم حذف الأصل ${asset.name} نهائياً`, id);
+        addNotification(`تم حذف الأصل ${asset.name}`, 'success');
+    } catch (error) {
+        console.error('Failed to delete asset:', error);
+        addNotification('فشل في حذف الأصل', 'error');
+    }
   };
 
-  const addTicket = (ticketData: any) => {
+  const addTicket = async (ticketData: any) => {
     if (!hasPermission('tickets', 'create')) return;
-    const year = new Date().getFullYear().toString().substr(-2);
-    const id = getNextId(`TKT-${year}`, `TKT-${year}`);
-    const now = new Date().toISOString();
-    const finalReceivedAt = ticketData.receivedAt || now;
-    const newTicket: Ticket = { ...ticketData, id, status: TicketStatus.NEW, receivedAt: finalReceivedAt, isReceivedAtAdjusted: ticketData.receivedAt ? true : false };
-    setTickets(prev => [newTicket, ...prev]);
-    logSystemEvent('TICKET_CREATE', `إنشاء تذكرة صيانة جديدة`, undefined, id);
-    addNotification(`تم إنشاء تذكرة جديدة (${id}) بنجاح`, 'success', id);
+    try {
+        const year = new Date().getFullYear().toString().substr(-2);
+        const id = getNextId(`TKT-${year}`, `TKT-${year}`);
+        const now = new Date().toISOString();
+        const finalReceivedAt = ticketData.receivedAt || now;
+        const newTicket: Ticket = { ...ticketData, id, status: TicketStatus.NEW, receivedAt: finalReceivedAt, isReceivedAtAdjusted: ticketData.receivedAt ? true : false };
+        
+        const createdTicket = await apiService.createTicket(newTicket);
+        setTickets(prev => [createdTicket, ...prev]);
+        logSystemEvent('TICKET_CREATE', `إنشاء تذكرة صيانة جديدة`, undefined, id);
+        addNotification(`تم إنشاء تذكرة جديدة (${id}) بنجاح`, 'success', id);
+    } catch (error) {
+        console.error('Failed to add ticket:', error);
+        addNotification('فشل في إنشاء التذكرة', 'error');
+    }
   };
 
   const submitPublicTicket = (ticketData: Partial<Ticket>) => {
@@ -760,21 +853,28 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       addNotification(`تم استيراد ${newTickets.length} تذكرة بنجاح`, 'success');
   };
 
-  const updateTicketStatus = (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => {
+  const updateTicketStatus = async (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => {
     const oldTicket = tickets.find(t => t.id === id);
     if (!oldTicket) return;
     if (!hasPermission('tickets', 'update', oldTicket)) return;
     if (status === TicketStatus.CLOSED && !hasPermission('tickets', 'change_status_closed', oldTicket)) return;
-    const updates: Partial<Ticket> = { status };
-    if (resolutionData) { updates.resolutionType = resolutionData.type; updates.resolutionDetails = resolutionData.details; }
-    const now = new Date().toISOString();
-    if (status === TicketStatus.IN_PROGRESS && !oldTicket.startedAt) updates.startedAt = now;
-    if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) updates.resolvedAt = now;
-    if (status === TicketStatus.CLOSED && !oldTicket.closedAt) updates.closedAt = now;
-    if (status === TicketStatus.REOPENED) { updates.resolvedAt = undefined; updates.closedAt = undefined; }
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-    logSystemEvent('TICKET_STATUS_CHANGE', `تغيير حالة التذكرة إلى ${status}`, undefined, id);
-    if (status === TicketStatus.RESOLVED) addNotification(`تم حل التذكرة ${id}`, 'success');
+    try {
+        const updates: Partial<Ticket> = { status };
+        if (resolutionData) { updates.resolutionType = resolutionData.type; updates.resolutionDetails = resolutionData.details; }
+        const now = new Date().toISOString();
+        if (status === TicketStatus.IN_PROGRESS && !oldTicket.startedAt) updates.startedAt = now;
+        if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) updates.resolvedAt = now;
+        if (status === TicketStatus.CLOSED && !oldTicket.closedAt) updates.closedAt = now;
+        if (status === TicketStatus.REOPENED) { updates.resolvedAt = undefined; updates.closedAt = undefined; }
+        
+        const updatedTicket = await apiService.updateTicket(id, updates);
+        setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
+        logSystemEvent('TICKET_STATUS_CHANGE', `تغيير حالة التذكرة إلى ${status}`, undefined, id);
+        if (status === TicketStatus.RESOLVED) addNotification(`تم حل التذكرة ${id}`, 'success');
+    } catch (error) {
+        console.error('Failed to update ticket status:', error);
+        addNotification('فشل في تحديث حالة التذكرة', 'error');
+    }
   };
 
   const adjustTicketTime = (id: string, field: string, newTime: string, reason: string) => {
@@ -786,21 +886,30 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     logSystemEvent('TICKET_TIME_ADJUST', `تعديل ${field} يدويًا`, undefined, id, undefined, reason);
   };
 
-  const addSubscription = (subData: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => {
+  const addSubscription = async (subData: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => {
     if (!hasPermission('subscriptions', 'create')) return;
-    const subId = getNextId('SUB', 'SUB');
-    let currentRenewalId = undefined; let nextRenewalDate = undefined;
-    if (initialRenewal) {
-      const renId = getNextId('REN', 'REN');
-      const newRenewal: RenewalRecord = { ...initialRenewal, id: renId, subscriptionId: subId, createdAt: new Date().toISOString(), createdBy: currentUser.name };
-      setRenewals(prev => [newRenewal, ...prev]);
-      currentRenewalId = renId;
-      nextRenewalDate = initialRenewal.endDate;
+    try {
+        const subId = getNextId('SUB', 'SUB');
+        let currentRenewalId = undefined; 
+        let nextRenewalDate = undefined;
+        
+        if (initialRenewal) {
+          const renId = getNextId('REN', 'REN');
+          const newRenewal: RenewalRecord = { ...initialRenewal, id: renId, subscriptionId: subId, createdAt: new Date().toISOString(), createdBy: currentUser.name };
+          setRenewals(prev => [newRenewal, ...prev]);
+          currentRenewalId = renId;
+          nextRenewalDate = initialRenewal.endDate;
+        }
+        
+        const newSubData: Subscription = { ...subData, id: subId, status: 'ACTIVE', currentRenewalId, nextRenewalDate, totalSeats: initialRenewal?.quantity || 0 };
+        const newSub = await apiService.createSubscription(newSubData);
+        setSubscriptions(prev => [newSub, ...prev]);
+        logSystemEvent('SUB_CREATE', `إضافة اشتراك جديد: ${newSub.name}`, undefined, undefined, undefined, undefined, subId);
+        addNotification('تم إضافة الاشتراك بنجاح', 'success');
+    } catch (error) {
+        console.error('Failed to add subscription:', error);
+        addNotification('فشل في إضافة الاشتراك', 'error');
     }
-    const newSub: Subscription = { ...subData, id: subId, status: 'ACTIVE', currentRenewalId, nextRenewalDate, totalSeats: initialRenewal?.quantity || 0 };
-    setSubscriptions(prev => [newSub, ...prev]);
-    logSystemEvent('SUB_CREATE', `إضافة اشتراك جديد: ${newSub.name}`, undefined, undefined, undefined, undefined, subId);
-    addNotification('تم إضافة الاشتراك بنجاح', 'success');
   };
 
   const addRenewal = (subId: string, renewalData: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => {
@@ -831,15 +940,25 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     if (changes.length > 0) logSystemEvent('SUB_UPDATE', 'تحديث بيانات الاشتراك', undefined, undefined, changes, undefined, id);
   };
 
-  const addSimCard = (simData: Omit<SimCard, 'id'>) => {
+  const addSimCard = async (simData: Omit<SimCard, 'id'>) => {
       if (!hasPermission('subscriptions', 'create')) return;
-      const existingSim = simCards.find(s => s.serialNumber === simData.serialNumber);
-      if (existingSim) { addNotification('خطأ: الرقم التسلسلي للشريحة (Serial Number) مستخدم بالفعل', 'error'); throw new Error('Duplicate Serial Number'); }
-      const id = `SIM-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-      const newSim: SimCard = { ...simData, id };
-      setSimCards(prev => [newSim, ...prev]);
-      logSystemEvent('SIM_CREATE', `إضافة شريحة جديدة: ${newSim.phoneNumber || newSim.serialNumber}`, undefined, undefined, undefined, undefined, undefined, id);
-      addNotification('تم إضافة الشريحة بنجاح', 'success');
+      try {
+          const existingSim = simCards.find(s => s.serialNumber === simData.serialNumber);
+          if (existingSim) { 
+              addNotification('خطأ: الرقم التسلسلي للشريحة (Serial Number) مستخدم بالفعل', 'error'); 
+              return;
+          }
+          const id = `SIM-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+          const newSimData: SimCard = { ...simData, id };
+          
+          const newSim = await apiService.createSimCard(newSimData);
+          setSimCards(prev => [newSim, ...prev]);
+          logSystemEvent('SIM_CREATE', `إضافة شريحة جديدة: ${newSim.phoneNumber || newSim.serialNumber}`, undefined, undefined, undefined, undefined, undefined, newSim.id);
+          addNotification('تم إضافة الشريحة بنجاح', 'success');
+      } catch (error) {
+          console.error('Failed to add SIM card:', error);
+          addNotification('فشل في إضافة الشريحة', 'error');
+      }
   };
 
   const updateSimCard = (id: string, updated: Partial<SimCard>) => {
