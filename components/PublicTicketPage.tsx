@@ -72,7 +72,7 @@ export const PublicTicketPage: React.FC<PublicTicketPageProps> = ({ onBack }) =>
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
       if (!validateEmail(formData.email)) {
@@ -82,7 +82,7 @@ export const PublicTicketPage: React.FC<PublicTicketPageProps> = ({ onBack }) =>
       setLoading(true);
       
       // Simulate network delay for UX
-      setTimeout(() => {
+      setTimeout(async () => {
           // We append phone to the description to ensure the support team sees it
           let contactInfo = '';
           if (formData.phone) {
@@ -90,16 +90,21 @@ export const PublicTicketPage: React.FC<PublicTicketPageProps> = ({ onBack }) =>
           }
           const finalDescription = `${contactInfo}\n\n${formData.description}`;
 
-          const id = submitPublicTicket({
-              requesterName: formData.requesterName,
-              requesterEmail: formData.email, // Passing email explicitly for SMTP
-              branch: formData.branch,
-              category: 'غير محدد', // Default for public tickets, to be classified by Technician
-              priority: formData.priority,
-              description: finalDescription,
-              attachmentImage: attachment || undefined
-          });
-          setSubmittedId(id);
+          try {
+              const id = await submitPublicTicket({
+                  requesterName: formData.requesterName,
+                  requesterEmail: formData.email, // Passing email explicitly for SMTP
+                  branch: formData.branch,
+                  category: 'غير محدد', // Default for public tickets, to be classified by Technician
+                  priority: formData.priority,
+                  description: finalDescription,
+                  attachmentImage: attachment || undefined
+              });
+              setSubmittedId(id);
+          } catch (error) {
+              console.error('Failed to submit ticket:', error);
+              setSubmittedId('ERROR');
+          }
           setLoading(false);
       }, 1000);
   };

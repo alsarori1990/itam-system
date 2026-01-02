@@ -83,8 +83,8 @@ interface AppContextType {
   deleteAsset: (id: string) => Promise<void>;
   
   // Ticket Methods
-  addTicket: (ticket: Omit<Ticket, 'id' | 'status' | 'receivedAt'> & { receivedAt?: string }) => Promise<void>;
-  submitPublicTicket: (ticketData: Partial<Ticket>) => string;
+  addTicket: (ticket: Omit<Ticket, 'id' | 'status' | 'receivedAt'> & { receivedAt?: string }) => Promise<string>;
+  submitPublicTicket: (ticketData: Partial<Ticket>) => Promise<string>;
   addTicketsBulk: (ticketsData: Partial<Ticket>[]) => void;
   updateTicketStatus: (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => Promise<void>;
   adjustTicketTime: (id: string, field: 'receivedAt' | 'startedAt' | 'resolvedAt', newTime: string, reason: string) => void;
@@ -680,8 +680,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     }
   };
 
-  const addTicket = async (ticketData: any) => {
-    if (!hasPermission('tickets', 'create')) return;
+  const addTicket = async (ticketData: any): Promise<string> => {
+    if (!hasPermission('tickets', 'create')) return '';
     try {
         const year = new Date().getFullYear().toString().substr(-2);
         const id = getNextId(`TKT-${year}`, `TKT-${year}`);
@@ -691,26 +691,51 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         
         const createdTicket = await apiService.createTicket(newTicket);
         setTickets(prev => [createdTicket, ...prev]);
-        logSystemEvent('TICKET_CREATE', `إنشاء تذكرة صيانة جديدة`, undefined, id);
-        addNotification(`تم إنشاء تذكرة جديدة (${id}) بنجاح`, 'success', id);
+        logSystemEvent('TICKET_CREATE', `إنشاء تذكرة صيانة جديدة`, undefined, createdTicket.id);
+        addNotification(`تم إنشاء تذكرة جديدة (${createdTicket.id}) بنجاح`, 'success', createdTicket.id);
+        return createdTicket.id;
     } catch (error) {
         console.error('Failed to add ticket:', error);
         addNotification('فشل في إنشاء التذكرة', 'error');
+        return '';
     }
   };
 
-  const submitPublicTicket = (ticketData: Partial<Ticket>) => {
-    const year = new Date().getFullYear().toString().substr(-2);
-    const id = getNextId(`TKT-${year}`, `TKT-${year}`);
-    const now = new Date().toISOString();
-    const newTicket: Ticket = {
-      id, requesterName: ticketData.requesterName || 'زائر', requesterEmail: ticketData.requesterEmail, branch: ticketData.branch || config.locations[0], channel: TicketChannel.PORTAL, category: ticketData.category || 'أخرى', priority: ticketData.priority || TicketPriority.MEDIUM, description: ticketData.description || '', attachmentImage: ticketData.attachmentImage, status: TicketStatus.NEW, receivedAt: now, assignedTo: '', isReceivedAtAdjusted: false
-    };
-    setTickets(prev => [newTicket, ...prev]);
-    logSystemEvent('TICKET_CREATE', `تم إنشاء تذكرة جديدة عبر البوابة العامة بواسطة ${newTicket.requesterName}`, undefined, id);
-    addNotification(`🔔 تذكرة جديدة من البوابة: ${newTicket.requesterName} - ${newTicket.branch}`, 'info', id);
-    if (config.smtpSettings?.enabled) { /* Send Emails logic */ }
-    return id;
+  const submitPublicTicket = async (ticketData: Partial<Ticket>): Promise<string> => {
+    try {
+      const now = new Date().toISOString();
+      const year = new Date().getFullYear().toString().substr(-2);
+      const id = getNextId(`TKT-${year}`, `TKT-${year}`);
+      
+      const ticketToCreate: Ticket = {
+        id,
+        requesterName: ticketData.requesterName || 'زائر',
+        requesterEmail: ticketData.requesterEmail,
+        branch: ticketData.branch || config.locations[0],
+        channel: TicketChannel.PORTAL,
+        category: ticketData.category || 'أخرى',
+        priority: ticketData.priority || TicketPriority.MEDIUM,
+        description: ticketData.description || '',
+        attachmentImage: ticketData.attachmentImage,
+        status: TicketStatus.NEW,
+        receivedAt: now,
+        assignedTo: '',
+        isReceivedAtAdjusted: false
+      };
+
+      // Save directly to API without permission check (public access)
+      const createdTicket = await apiService.createTicket(ticketToCreate);
+      setTickets(prev => [createdTicket, ...prev]);
+      
+      logSystemEvent('TICKET_CREATE', `تذكرة جديدة من البوابة العامة: ${ticketData.requesterName}`, undefined, createdTicket.id);
+      addNotification(`🔔 تذكرة جديدة من البوابة: ${ticketData.requesterName}`, 'info', createdTicket.id);
+      
+      return createdTicket.id;
+    } catch (error) {
+      console.error('Failed to submit public ticket:', error);
+      addNotification('فشل في إرسال التذكرة', 'error');
+      return 'ERROR';
+    }
   };
 
   const addTicketsBulk = (ticketsData: Partial<Ticket>[]) => {
