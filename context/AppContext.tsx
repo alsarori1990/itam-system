@@ -48,15 +48,8 @@ const INITIAL_PERMISSIONS_MATRIX: Record<UserRole, RolePermissions> = {
   }
 };
 
-// Initial Users Data
-const INITIAL_USERS: AppUser[] = [
-  { id: 'USR-ADMIN', name: 'مدير النظام', email: 'admin@company.com', roles: [UserRole.SUPER_ADMIN], branches: [] },
-  { id: 'USR-MGR', name: 'سعد القحطاني', email: 'saad@company.com', roles: [UserRole.IT_MANAGER], branches: ['جدة - الفرع'] },
-  { id: 'USR-TECH', name: 'فني دعم', email: 'tech@company.com', roles: [UserRole.TECHNICIAN], branches: ['جدة - الفرع'] },
-  { id: 'USR-AUDIT', name: 'مدقق مالي', email: 'audit@company.com', roles: [UserRole.AUDITOR], branches: [] },
-  { id: 'USR-VIEW', name: 'زائر', email: 'viewer@company.com', roles: [UserRole.VIEWER], branches: [] },
-  { id: 'USR-MULTI', name: 'مشرف منطقتين', email: 'area.sup@company.com', roles: [UserRole.IT_MANAGER], branches: ['جدة - الفرع', 'الرياض - المكتب الرئيسي'] }
-];
+// Initial Users Data - Will be loaded from API
+const INITIAL_USERS: AppUser[] = [];
 
 interface AppContextType {
   assets: Asset[];
@@ -70,7 +63,7 @@ interface AppContextType {
   
   // User & Auth
   isAuthenticated: boolean;
-  currentUser: AppUser;
+  currentUser: AppUser | null;
   allUsers: AppUser[];
   rolePermissions: Record<UserRole, RolePermissions>;
   login: (email: string, password?: string) => Promise<boolean>; 
@@ -199,165 +192,15 @@ const INITIAL_CONFIG: AppConfig = {
   }
 };
 
-const INITIAL_ASSETS: Asset[] = [
-  {
-    id: 'IT-LAP-RUH-23-0015',
-    name: 'HP EliteBook G8',
-    type: AssetType.LAPTOP,
-    brand: 'HP',
-    serialNumber: 'CND0234X',
-    purchaseDate: '2023-01-15',
-    warrantyExpiry: '2026-01-15',
-    status: AssetStatus.IN_USE,
-    assignedTo: 'أحمد محمد',
-    location: 'الرياض - المكتب الرئيسي',
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'IT-SRV-SVR-22-0008',
-    name: 'Dell PowerEdge R740',
-    type: AssetType.SERVER,
-    brand: 'Dell',
-    serialNumber: 'SRV-8822',
-    purchaseDate: '2022-05-20',
-    warrantyExpiry: '2025-05-20',
-    status: AssetStatus.IN_USE,
-    assignedTo: 'قسم البنية التحتية',
-    location: 'غرفة الخوادم A',
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'IT-PRN-JED-23-0099',
-    name: 'Canon ImageRunner',
-    type: AssetType.PRINTER,
-    brand: 'Canon',
-    serialNumber: 'CN-9988',
-    purchaseDate: '2023-06-01',
-    warrantyExpiry: '2025-06-01',
-    status: AssetStatus.IN_USE,
-    assignedTo: 'موظفي الاستقبال',
-    location: 'جدة - الفرع',
-    lastUpdated: new Date().toISOString()
-  }
-];
+const INITIAL_ASSETS: Asset[] = []; // Will be loaded from API
 
-const INITIAL_TICKETS: Ticket[] = [
-  {
-    id: 'TKT-24-001',
-    requesterName: 'سارة خالد',
-    requesterEmail: 'sara@company.com',
-    branch: 'الرياض - المكتب الرئيسي',
-    channel: TicketChannel.WHATSAPP,
-    category: 'أجهزة',
-    priority: TicketPriority.HIGH,
-    description: 'اللابتوب لا يعمل والبطارية تسخن',
-    linkedAssetId: 'IT-LAP-RUH-23-0015',
-    status: TicketStatus.IN_PROGRESS,
-    receivedAt: new Date(Date.now() - 86400000).toISOString(),
-    startedAt: new Date(Date.now() - 80000000).toISOString(),
-    assignedTo: 'مدير النظام' 
-  },
-  {
-    id: 'TKT-24-002',
-    requesterName: 'محمد علي',
-    requesterEmail: 'mohammed@company.com',
-    branch: 'جدة - الفرع',
-    channel: TicketChannel.EMAIL,
-    category: 'طابعات',
-    priority: TicketPriority.MEDIUM,
-    description: 'الطابعة لا تستجيب للأوامر',
-    linkedAssetId: 'IT-PRN-JED-23-0099',
-    status: TicketStatus.NEW,
-    receivedAt: new Date(Date.now() - 3600000).toISOString(),
-    assignedTo: 'فني دعم'
-  }
-];
+const INITIAL_TICKETS: Ticket[] = []; // Will be loaded from API
 
-const INITIAL_SUBSCRIPTIONS: Subscription[] = [
-  {
-    id: 'SUB-001',
-    name: 'Adobe Creative Cloud',
-    vendor: 'Adobe',
-    type: SubscriptionType.SAAS,
-    category: 'Design Tools',
-    billingCycle: BillingCycle.YEARLY,
-    owner: 'مدير التصميم',
-    status: 'ACTIVE',
-    autoRenewal: true,
-    currentRenewalId: 'REN-001',
-    nextRenewalDate: '2025-05-20',
-    totalSeats: 5,
-    notes: 'يشمل Photoshop و Illustrator'
-  },
-  {
-    id: 'SUB-002',
-    name: 'Slack Pro',
-    vendor: 'Salesforce',
-    type: SubscriptionType.SAAS,
-    category: 'Communication',
-    billingCycle: BillingCycle.MONTHLY,
-    owner: 'HR Manager',
-    status: 'ACTIVE',
-    autoRenewal: true,
-    currentRenewalId: 'REN-002',
-    nextRenewalDate: '2024-06-01', 
-    totalSeats: 25
-  }
-];
+const INITIAL_SUBSCRIPTIONS: Subscription[] = []; // Will be loaded from API
 
-const INITIAL_RENEWALS: RenewalRecord[] = [
-  {
-    id: 'REN-001',
-    subscriptionId: 'SUB-001',
-    startDate: '2024-05-20',
-    endDate: '2025-05-20',
-    cost: 3500,
-    currency: 'SAR',
-    quantity: 5,
-    createdAt: '2024-05-19T10:00:00Z',
-    createdBy: 'Admin'
-  },
-  {
-    id: 'REN-002',
-    subscriptionId: 'SUB-002',
-    startDate: '2024-05-01',
-    endDate: '2024-06-01',
-    cost: 800,
-    currency: 'USD',
-    quantity: 25,
-    createdAt: '2024-04-28T10:00:00Z',
-    createdBy: 'System'
-  }
-];
+const INITIAL_RENEWALS: RenewalRecord[] = []; // Will be loaded from API
 
-const INITIAL_SIMS: SimCard[] = [
-  {
-    id: 'SIM-001',
-    serialNumber: '8996601234567890123',
-    phoneNumber: '0501234567',
-    provider: 'STC',
-    type: SimType.VOICE_DATA,
-    planName: 'Business 400',
-    assignedTo: 'محمد أحمد',
-    department: 'المبيعات',
-    branch: 'الرياض - المكتب الرئيسي',
-    status: SimStatus.ACTIVE,
-    cost: 400
-  },
-  {
-    id: 'SIM-002',
-    serialNumber: '8996609876543210987',
-    phoneNumber: '0509988776',
-    provider: 'Mobily',
-    type: SimType.DATA,
-    planName: 'Data Unlimited',
-    assignedTo: 'راوتر المكتب',
-    department: 'IT',
-    branch: 'جدة - الفرع',
-    status: SimStatus.ACTIVE,
-    cost: 250
-  }
-];
+const INITIAL_SIMS: SimCard[] = []; // Will be loaded from API
 
 export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -381,7 +224,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   // Auth & Permissions State - Start empty, load from API
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
-  const [currentUser, setCurrentUser] = useState<AppUser>(INITIAL_USERS[0]); 
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null); 
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Default: Not Authenticated
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, RolePermissions>>(INITIAL_PERMISSIONS_MATRIX);
 
@@ -557,12 +400,14 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   // Load data when user logs in successfully  
   useEffect(() => {
-      if (isAuthenticated && currentUser.id) {
+      if (isAuthenticated && currentUser) {
           loadAllData();
       }
-  }, [isAuthenticated, currentUser.id]);
+  }, [isAuthenticated, currentUser]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
+      if (!currentUser || !currentUser.roles) return false; // Guard clause for null user
+      
       for (const role of currentUser.roles) {
           const rolePerms = rolePermissions[role];
           if (!rolePerms) continue;

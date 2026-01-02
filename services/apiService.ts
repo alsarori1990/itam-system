@@ -1,6 +1,6 @@
 import { AppUser } from '../types';
 
-const API_BASE_URL = 'http://72.62.149.231/api';
+const API_BASE_URL = 'http://72.62.149.231/api'; // Changed to production server
 
 interface AuthResponse {
   token: string;
