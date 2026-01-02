@@ -60,6 +60,15 @@ export const PublicTicketPage: React.FC<PublicTicketPageProps> = ({ onBack }) =>
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check file size (2MB = 2 * 1024 * 1024 bytes)
+    const maxSizeInBytes = 2 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      alert('⚠️ حجم الصورة كبير جداً!\n\nالحد الأقصى المسموح: 2 ميجابايت\nحجم الصورة الحالي: ' + (file.size / (1024 * 1024)).toFixed(2) + ' ميجابايت\n\n⚠️ Image size is too large!\n\nMaximum allowed: 2MB\nCurrent size: ' + (file.size / (1024 * 1024)).toFixed(2) + ' MB');
+      // Reset the file input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setAttachment(reader.result as string);

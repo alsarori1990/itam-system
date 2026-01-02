@@ -161,6 +161,15 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async createPublicTicket(ticketData: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/tickets/public`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticketData),
+    });
+    return this.handleResponse(response);
+  }
+
   async updateTicket(ticketId: string, ticketData: any): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}`, {
       method: 'PUT',

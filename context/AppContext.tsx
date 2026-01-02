@@ -683,11 +683,16 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const addTicket = async (ticketData: any): Promise<string> => {
     if (!hasPermission('tickets', 'create')) return '';
     try {
-        const year = new Date().getFullYear().toString().substr(-2);
-        const id = getNextId(`TKT-${year}`, `TKT-${year}`);
         const now = new Date().toISOString();
         const finalReceivedAt = ticketData.receivedAt || now;
-        const newTicket: Ticket = { ...ticketData, id, status: TicketStatus.NEW, receivedAt: finalReceivedAt, isReceivedAtAdjusted: ticketData.receivedAt ? true : false };
+        
+        // Let backend generate unique ID - send without id field
+        const newTicket: Partial<Ticket> = { 
+            ...ticketData, 
+            status: TicketStatus.NEW, 
+            receivedAt: finalReceivedAt, 
+            isReceivedAtAdjusted: ticketData.receivedAt ? true : false 
+        };
         
         const createdTicket = await apiService.createTicket(newTicket);
         setTickets(prev => [createdTicket, ...prev]);
@@ -704,11 +709,9 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const submitPublicTicket = async (ticketData: Partial<Ticket>): Promise<string> => {
     try {
       const now = new Date().toISOString();
-      const year = new Date().getFullYear().toString().substr(-2);
-      const id = getNextId(`TKT-${year}`, `TKT-${year}`);
       
-      const ticketToCreate: Ticket = {
-        id,
+      // Let backend generate unique ID
+      const ticketToCreate: Partial<Ticket> = {
         requesterName: ticketData.requesterName || 'زائر',
         requesterEmail: ticketData.requesterEmail,
         branch: ticketData.branch || config.locations[0],
@@ -724,7 +727,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       };
 
       // Save directly to API without permission check (public access)
-      const createdTicket = await apiService.createTicket(ticketToCreate);
+      const createdTicket = await apiService.createPublicTicket(ticketToCreate);
       setTickets(prev => [createdTicket, ...prev]);
       
       logSystemEvent('TICKET_CREATE', `تذكرة جديدة من البوابة العامة: ${ticketData.requesterName}`, undefined, createdTicket.id);
