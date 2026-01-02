@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════════
+# GitHub Actions - التحديث التلقائي عند Push
+# ═══════════════════════════════════════════════════════════
+
+name: Auto Deploy to Hostinger
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. سحب الكود
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    # 2. تثبيت Node.js
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    # 3. تثبيت Dependencies وبناء Frontend
+    - name: Install and Build
+      run: |
+        npm ci
+        npm run build
+    
+    # 4. رفع للسيرفر عبر SSH
+    - name: Deploy to Server
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SERVER_IP: ${{ secrets.SERVER_IP }}
+        SERVER_USER: ${{ secrets.SERVER_USER }}
+      run: |
+        # إعداد SSH
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
+        
+        # رفع الملفات
+        scp -r dist/ ${SERVER_USER}@${SERVER_IP}:/var/www/itam-system/
+        scp -r server/ ${SERVER_USER}@${SERVER_IP}:/var/www/itam-system/
+        
+        # تشغيل سكريبت التحديث على السيرفر
+        ssh ${SERVER_USER}@${SERVER_IP} "bash /var/www/itam-system/scripts/hot-deploy.sh"
+    
+    # 5. فحص الصحة
+    - name: Health Check
+      run: |
+        sleep 10
+        curl -f https://yourdomain.com/health || exit 1
+    
+    # 6. إشعار (اختياري)
+    - name: Notify Success
+      if: success()
+      run: |
+        echo "✅ تم النشر بنجاح!"
+        # يمكنك إضافة إشعار Slack/Discord هنا
+
+# ═══════════════════════════════════════════════════════════
+# الإعدادات المطلوبة في GitHub Secrets:
+# 
+# SSH_PRIVATE_KEY    - المفتاح الخاص للاتصال بالسيرفر
+# SERVER_IP          - عنوان IP السيرفر
+# SERVER_USER        - اسم المستخدم (مثل root)
+# ═══════════════════════════════════════════════════════════

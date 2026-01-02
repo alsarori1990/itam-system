@@ -1,0 +1,12 @@
+# Routes Stubs - للتطوير المستقبلي
+
+# هذه الملفات يمكن إنشاؤها بنفس نمط assets.js
+
+export default {
+  tickets: 'server/routes/tickets.js',
+  subscriptions: 'server/routes/subscriptions.js',
+  simCards: 'server/routes/simCards.js',
+  users: 'server/routes/users.js',
+  reports: 'server/routes/reports.js',
+  audit: 'server/routes/audit.js'
+};
