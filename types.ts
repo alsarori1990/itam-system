@@ -287,9 +287,15 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
+  password?: string; // For creation only, not stored in frontend
   roles: UserRole[]; 
   branches?: string[];
   department?: string;
+  isActive?: boolean;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isMfaEnabled?: boolean;
 }
 
 // Actions for Permissions

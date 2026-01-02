@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode, PropsWithChildren } from 'react';
 import { Asset, AssetStatus, AssetType, AppConfig, AuditLogEntry, SequenceMap, AuditActionType, FieldChange, Ticket, TicketStatus, TicketChannel, TicketPriority, Subscription, SubscriptionType, BillingCycle, RenewalRecord, SubscriptionAssignment, ReminderRule, AppUser, UserRole, RolePermissions, Resource, PermissionAction, PermissionScope, SystemNotification, SmtpSettings, SimCard, SimStatus, SimType } from '../types';
 import * as OTPAuth from 'otpauth';
+import apiService from '../services/apiService';
 
 // --- AUTHORIZATION MATRIX DEFINITION (INITIAL STATE) ---
 const INITIAL_PERMISSIONS_MATRIX: Record<UserRole, RolePermissions> = {
@@ -72,7 +73,7 @@ interface AppContextType {
   currentUser: AppUser;
   allUsers: AppUser[];
   rolePermissions: Record<UserRole, RolePermissions>;
-  login: (email: string) => boolean; 
+  login: (email: string, password?: string) => Promise<boolean>; 
   logout: () => void; 
   switchUser: (role: UserRole) => void;
   loginAsUser: (userId: string) => void;
@@ -80,7 +81,7 @@ interface AppContextType {
   updatePermission: (role: UserRole, resource: Resource, action: PermissionAction, scope: PermissionScope) => void;
   
   // User Management Methods
-  manageUser: (action: 'add' | 'update' | 'delete', userData: AppUser) => void;
+  manageUser: (action: 'add' | 'update' | 'delete', userData: AppUser) => Promise<void>;
 
   // Asset Methods
   addAsset: (asset: Asset) => void;
@@ -359,12 +360,12 @@ const INITIAL_SIMS: SimCard[] = [
 ];
 
 export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
-  const [assets, setAssets] = useState<Asset[]>(INITIAL_ASSETS);
-  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
-  const [renewals, setRenewals] = useState<RenewalRecord[]>(INITIAL_RENEWALS);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [renewals, setRenewals] = useState<RenewalRecord[]>([]);
   const [subAssignments, setSubAssignments] = useState<SubscriptionAssignment[]>([]);
-  const [simCards, setSimCards] = useState<SimCard[]>(INITIAL_SIMS);
+  const [simCards, setSimCards] = useState<SimCard[]>([]);
   const [config, setConfig] = useState<AppConfig>(INITIAL_CONFIG);
   // ... rest of state
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -378,8 +379,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
-  // Auth & Permissions State
-  const [allUsers, setAllUsers] = useState<AppUser[]>(INITIAL_USERS);
+  // Auth & Permissions State - Start empty, load from API
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser>(INITIAL_USERS[0]); 
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Default: Not Authenticated
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, RolePermissions>>(INITIAL_PERMISSIONS_MATRIX);
@@ -406,13 +407,76 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const login = (email: string) => {
-      const user = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (user) { setCurrentUser(user); setIsAuthenticated(true); return true; }
-      return false;
+  const login = async (email: string, password: string = 'admin') => {
+      try {
+          const response = await apiService.login(email, password);
+          const user: AppUser = {
+              id: response.user.id,
+              name: response.user.name,
+              email: response.user.email,
+              roles: response.user.roles as UserRole[],
+              branches: response.user.branches || [],
+              isActive: true,
+              lastLogin: new Date().toISOString(),
+              isMfaEnabled: response.user.isMfaEnabled,
+          };
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          
+          // Load all users after login
+          loadUsers();
+          return true;
+      } catch (error) {
+          console.error('Login failed:', error);
+          return false;
+      }
   };
 
-  const logout = () => { setIsAuthenticated(false); };
+  const logout = () => { 
+      apiService.logout();
+      setIsAuthenticated(false); 
+  };
+
+  const loadUsers = async () => {
+      try {
+          const users = await apiService.getUsers();
+          setAllUsers(users);
+      } catch (error) {
+          console.error('Failed to load users:', error);
+      }
+  };
+
+  const manageUser = async (action: 'add' | 'update' | 'delete', userData: AppUser) => {
+      try {
+          if (action === 'add') {
+              const newUser = await apiService.createUser({
+                  name: userData.name,
+                  email: userData.email,
+                  password: userData.password || 'password123', // Default password
+                  roles: userData.roles,
+                  branches: userData.branches || [],
+                  isActive: true
+              });
+              setAllUsers(prev => [...prev, newUser]);
+              logSystemEvent('CREATE', `تم إضافة مستخدم جديد: ${userData.name}`);
+              addNotification(`تم إضافة المستخدم ${userData.name} بنجاح`, 'success');
+          } else if (action === 'update') {
+              const updatedUser = await apiService.updateUser(userData.id!, userData);
+              setAllUsers(prev => prev.map(u => u.id === userData.id ? updatedUser : u));
+              logSystemEvent('UPDATE', `تم تحديث بيانات المستخدم: ${userData.name}`);
+              if (currentUser.id === userData.id) setCurrentUser(updatedUser);
+              addNotification(`تم تحديث بيانات ${userData.name} بنجاح`, 'success');
+          } else if (action === 'delete') {
+              await apiService.deleteUser(userData.id!);
+              setAllUsers(prev => prev.filter(u => u.id !== userData.id));
+              logSystemEvent('DELETE', `تم حذف المستخدم: ${userData.name}`);
+              addNotification(`تم حذف المستخدم ${userData.name}`, 'success');
+          }
+      } catch (error) {
+          console.error(`Failed to ${action} user:`, error);
+          addNotification(`فشل في ${action === 'add' ? 'إضافة' : action === 'update' ? 'تحديث' : 'حذف'} المستخدم`, 'error');
+      }
+  };
 
   const switchUser = (role: UserRole) => {
       const targetUser = allUsers.find(u => u.roles.includes(role));
@@ -424,19 +488,15 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       if (user) { setCurrentUser(user); setIsAuthenticated(true); }
   };
 
-  const manageUser = (action: 'add' | 'update' | 'delete', userData: AppUser) => {
-      if (action === 'add') {
-          setAllUsers(prev => [...prev, { ...userData, id: `USR-${Math.floor(Math.random()*10000)}` }]);
-          logSystemEvent('UPDATE', `تم إضافة مستخدم جديد: ${userData.name}`);
-      } else if (action === 'update') {
-          setAllUsers(prev => prev.map(u => u.id === userData.id ? userData : u));
-          logSystemEvent('UPDATE', `تم تحديث بيانات المستخدم: ${userData.name}`);
-          if (currentUser.id === userData.id) setCurrentUser(userData);
-      } else if (action === 'delete') {
-          setAllUsers(prev => prev.filter(u => u.id !== userData.id));
-          logSystemEvent('DELETE', `تم حذف المستخدم: ${userData.name}`);
+  // Load initial data on app start
+  useEffect(() => {
+      const token = localStorage.getItem('authToken');
+      if (token && !isAuthenticated) {
+          // Auto-login if token exists
+          setIsAuthenticated(true);
+          loadUsers();
       }
-  };
+  }, [isAuthenticated]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
       for (const role of currentUser.roles) {

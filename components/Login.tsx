@@ -13,15 +13,18 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
     if (email && password) {
-        // For demo: verify email exists in system, accept any password
-        const success = login(email);
-        if (!success) {
-            setError('البريد الإلكتروني غير مسجل في النظام.');
-        } else {
-            setError('');
+        try {
+            const success = await login(email, password);
+            if (!success) {
+                setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+            }
+        } catch (error) {
+            setError('حدث خطأ في تسجيل الدخول');
         }
     } else {
         setError('يرجى ملء جميع الحقول');
@@ -29,8 +32,11 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
   };
 
   // Quick Login Helper
-  const handleQuickLogin = (userEmail: string) => {
-      login(userEmail);
+  const handleQuickLogin = async (userEmail: string) => {
+      const success = await login(userEmail, 'admin'); // Use default password
+      if (!success) {
+          setError('فشل في تسجيل الدخول السريع');
+      }
   };
 
   return (
@@ -105,26 +111,12 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
                 <div className="mt-8 pt-6 border-t border-slate-100">
                     <p className="text-xs font-bold text-slate-400 text-center mb-4 uppercase tracking-widest">الدخول السريع (للتجربة)</p>
                     <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleQuickLogin('admin@company.com')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors group">
+                        <button onClick={() => handleQuickLogin('admin')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors group">
                             <div className="flex items-center gap-2 mb-1">
                                 <ShieldCheck size={16} className="text-purple-600"/>
                                 <span className="text-xs font-bold text-slate-700 group-hover:text-purple-700">مدير عام</span>
                             </div>
                             <p className="text-[10px] text-slate-400">صلاحيات كاملة</p>
-                        </button>
-                        <button onClick={() => handleQuickLogin('saad@company.com')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors group">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Fingerprint size={16} className="text-blue-600"/>
-                                <span className="text-xs font-bold text-slate-700 group-hover:text-blue-700">مدير IT</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400">فرع جدة</p>
-                        </button>
-                        <button onClick={() => handleQuickLogin('tech@company.com')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors group">
-                            <div className="flex items-center gap-2 mb-1">
-                                <User size={16} className="text-emerald-600"/>
-                                <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">فني دعم</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400">مهام محددة</p>
                         </button>
                     </div>
                 </div>

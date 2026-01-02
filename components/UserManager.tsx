@@ -363,6 +363,23 @@ export const UserManager: React.FC = () => {
                             </div>
                         </div>
 
+                        {!editingUser && (
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">كلمة المرور</label>
+                                <div className="relative">
+                                    <Lock className="absolute right-3 top-3 text-slate-400" size={18} />
+                                    <input 
+                                        required 
+                                        type="password" 
+                                        className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-purple-500 transition-colors"
+                                        placeholder="••••••••"
+                                        value={formData.password || ''}
+                                        onChange={e => setFormData({...formData, password: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Multi-Select for Roles */}
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-2">الأدوار (Roles) - متعدد</label>
