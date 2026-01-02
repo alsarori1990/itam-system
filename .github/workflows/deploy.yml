@@ -1,16 +1,14 @@
 # ═══════════════════════════════════════════════════════════
 # GitHub Actions - التحديث التلقائي عند Push
 # ═══════════════════════════════════════════════════════════
-# ⚠️ معطل مؤقتاً - سيُفعّل بعد إعداد السيرفر
 
 name: Auto Deploy to Hostinger
 
 on:
-  workflow_dispatch:  # تشغيل يدوي فقط
-  # push:
-  #   branches: [ main, master ]
-  # pull_request:
-  #   branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   deploy:
