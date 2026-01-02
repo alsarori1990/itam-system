@@ -247,6 +247,30 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     setTimeout(() => { setNotifications(prev => prev.filter(n => n.id !== id)); }, 6000);
   };
 
+  // Play notification sound for new portal tickets
+  const playNotificationSound = () => {
+    try {
+      // Create a simple beep sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800; // Frequency in Hz
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.error('Failed to play notification sound:', error);
+    }
+  };
+
   const removeNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
@@ -311,8 +335,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   const loadTickets = async () => {
       try {
-          const tickets = await apiService.getTickets();
-          setTickets(Array.isArray(tickets) ? tickets : []);
+          const newTickets = await apiService.getTickets();
+          setTickets(Array.isArray(newTickets) ? newTickets : []);
       } catch (error) {
           console.error('Failed to load tickets:', error);
           setTickets([]);
@@ -441,6 +465,34 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           loadAllData();
       }
   }, [isAuthenticated, currentUser]);
+
+  // Poll for new portal tickets every 30 seconds
+  useEffect(() => {
+      if (!isAuthenticated || !currentUser) return;
+
+      const checkForNewPortalTickets = async () => {
+          try {
+              const latestTickets = await apiService.getTickets();
+              if (!Array.isArray(latestTickets)) return;
+
+              const currentIds = new Set(tickets.map(t => t.id));
+              const newPortalTickets = latestTickets.filter((t: Ticket) => 
+                  !currentIds.has(t.id) && t.channel === TicketChannel.PORTAL
+              );
+
+              if (newPortalTickets.length > 0) {
+                  playNotificationSound();
+                  setTickets(latestTickets);
+                  addNotification(`تذكرة جديدة من البوابة العامة! (${newPortalTickets.length})`, 'info');
+              }
+          } catch (error) {
+              console.error('Failed to check for new tickets:', error);
+          }
+      };
+
+      const interval = setInterval(checkForNewPortalTickets, 30000); // Check every 30 seconds
+      return () => clearInterval(interval);
+  }, [isAuthenticated, currentUser, tickets]);
 
   const hasPermission = (resource: Resource, action: PermissionAction, dataContext?: any): boolean => {
       if (!currentUser || !currentUser.roles) return false; // Guard clause for null user
