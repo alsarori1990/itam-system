@@ -61,8 +61,17 @@ class ApiService {
   }
 
   async getCurrentUser(): Promise<AuthResponse['user']> {
+    // Read token fresh from localStorage
+    const token = localStorage.getItem('authToken');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: this.getHeaders(),
+      headers: headers,
     });
     return this.handleResponse(response);
   }

@@ -406,9 +406,11 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   useEffect(() => {
       const token = localStorage.getItem('authToken');
       if (token && !isAuthenticated && !currentUser) {
+          console.log('Auto-login: Token found, verifying...');
           // Verify token and get user data
           apiService.getCurrentUser()
               .then(userData => {
+                  console.log('Auto-login: User verified', userData.name);
                   const user: AppUser = {
                       id: userData.id,
                       name: userData.name,
@@ -422,7 +424,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
                   setCurrentUser(user);
                   setIsAuthenticated(true);
               })
-              .catch(() => {
+              .catch((error) => {
+                  console.error('Auto-login failed:', error);
                   // Token invalid, clear it
                   apiService.logout();
                   setIsAuthenticated(false);
