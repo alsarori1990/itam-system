@@ -3,9 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="نظام ITAM">
+    <link rel="manifest" href="/manifest.json">
     <title>نظام إدارة تقنية المعلومات الموحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Register Service Worker for Push Notifications
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('Service Worker registered:', registration);
+              
+              // Request notification permission
+              if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                  console.log('Notification permission:', permission);
+                });
+              }
+            })
+            .catch(err => console.error('Service Worker registration failed:', err));
+        });
+      }
+    </script>
     <style>
       body {
         font-family: 'Cairo', sans-serif;

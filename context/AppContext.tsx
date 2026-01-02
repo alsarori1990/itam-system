@@ -252,6 +252,32 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
+      // Try to vibrate on mobile (works on Android Chrome, not iOS Safari)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300, 100, 300, 100, 500]);
+      }
+      
+      // Request notification permission if not granted
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      
+      // Show browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const notification = new Notification('🔔 تذكرة جديدة من البوابة!', {
+          body: 'تم استلام تذكرة جديدة من البوابة العامة',
+          icon: '/icon-192.png',
+          tag: 'new-ticket',
+          requireInteraction: true,
+          vibrate: [300, 100, 300, 100, 300],
+        });
+        
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
+      
       // Create 3 beeps pattern over 3 seconds
       const beepTimes = [0, 0.8, 1.6]; // Three beeps at different times
       
@@ -266,8 +292,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         oscillator.frequency.value = 1200; // Hz (higher pitch)
         oscillator.type = 'square'; // Square wave for more harsh/alert sound
         
-        // Louder volume
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + startTime);
+        // Maximum volume
+        gainNode.gain.setValueAtTime(1.0, audioContext.currentTime + startTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + startTime + 0.4);
         
         oscillator.start(audioContext.currentTime + startTime);
@@ -284,7 +310,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       finalOscillator.frequency.value = 1000;
       finalOscillator.type = 'square';
       
-      finalGain.gain.setValueAtTime(0.6, audioContext.currentTime + 2.4);
+      finalGain.gain.setValueAtTime(1.0, audioContext.currentTime + 2.4);
       finalGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3.0);
       
       finalOscillator.start(audioContext.currentTime + 2.4);
