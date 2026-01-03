@@ -9,6 +9,16 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
+      build: {
+        rollupOptions: {
+          output: {
+            // Add timestamp to chunk names for cache busting
+            entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+            chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+            assetFileNames: `assets/[name]-[hash].[ext]`
+          }
+        }
+      },
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
