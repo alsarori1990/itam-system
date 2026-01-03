@@ -62,7 +62,7 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
                             <input 
                                 type="text" 
                                 className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all"
-                                placeholder="admin أو name@company.com"
+                                placeholder="name@daralesnad.net"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
