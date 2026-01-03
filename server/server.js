@@ -75,6 +75,17 @@ const connectDB = async () => {
       useUnifiedTopology: true,
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    
+    // Load SMTP settings from database after connection
+    try {
+      const smtpConfig = await Config.findOne({ key: 'smtp_settings' });
+      if (smtpConfig && smtpConfig.value) {
+        emailService.configure(smtpConfig.value);
+        console.log('📧 Email service initialized with saved settings');
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to load SMTP settings:', error.message);
+    }
   } catch (error) {
     console.error(`❌ Database Connection Error: ${error.message}`);
     process.exit(1);
@@ -83,19 +94,6 @@ const connectDB = async () => {
 
 // Connect to database
 connectDB();
-
-// Load SMTP settings from database on startup
-connectDB().then(async () => {
-  try {
-    const smtpConfig = await Config.findOne({ key: 'smtp_settings' });
-    if (smtpConfig && smtpConfig.value) {
-      emailService.configure(smtpConfig.value);
-      console.log('📧 Email service initialized');
-    }
-  } catch (error) {
-    console.error('⚠️ Failed to load SMTP settings:', error.message);
-  }
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
