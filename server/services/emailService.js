@@ -25,6 +25,9 @@ class EmailService {
           pass: settings.pass,
         },
         tls: {
+        connectionTimeout: 60000, // 60 seconds
+        greetingTimeout: 30000,   // 30 seconds
+        socketTimeout: 60000,     // 60 seconds,
           rejectUnauthorized: false // للتطوير - في الإنتاج ضعها true
         }
       });
