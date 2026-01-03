@@ -896,6 +896,11 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
             updates.resolvedAt = now;
             updates.resolvedBy = currentUser?.name || 'غير محدد'; // Save who resolved the ticket
             
+            // If ticket is not assigned to anyone, assign it to current user who is resolving it
+            if (!oldTicket.assignedTo || oldTicket.assignedTo === 'غير معين') {
+                updates.assignedTo = currentUser?.name || 'غير محدد';
+            }
+            
             // Save resolvedBy to localStorage for reports (since backend doesn't support it yet)
             const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
             ticketResolutions[id] = currentUser?.name || 'غير محدد';
@@ -917,11 +922,17 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         const backendUpdates = { ...updates };
         delete backendUpdates.resolvedBy;
         
+        console.log('🔧 Updating ticket:', id, 'with updates:', backendUpdates);
+        
         const updatedTicket = await apiService.updateTicket(id, backendUpdates);
+        
+        console.log('✅ Ticket updated successfully:', updatedTicket);
         
         // Manually add resolvedBy to the local state
         const finalTicket = { ...updatedTicket, resolvedBy: updates.resolvedBy };
         setTickets(prev => prev.map(t => t.id === id ? finalTicket : t));
+        
+        console.log('📊 Final ticket state:', finalTicket);
         
         logSystemEvent('TICKET_STATUS_CHANGE', `تغيير حالة التذكرة إلى ${status}`, undefined, id);
         if (status === TicketStatus.RESOLVED) addNotification(`تم حل التذكرة ${id}`, 'success');
