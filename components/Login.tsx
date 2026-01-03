@@ -108,22 +108,11 @@ export const Login: React.FC<LoginProps> = ({ onPublicAccess }) => {
                 </div>
 
                 {/* Dev Tools / Quick Login */}
-                <div className="mt-8 pt-6 border-t border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 text-center mb-4 uppercase tracking-widest">الدخول السريع (للتجربة)</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleQuickLogin('admin')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors group">
-                            <div className="flex items-center gap-2 mb-1">
-                                <ShieldCheck size={16} className="text-purple-600"/>
-                                <span className="text-xs font-bold text-slate-700 group-hover:text-purple-700">مدير عام</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400">صلاحيات كاملة</p>
-                        </button>
-                    </div>
-                </div>
+                {/* Removed for production */}
             </div>
             
             <p className="text-center text-slate-400 text-xs mt-8">
-                &copy; {new Date().getFullYear()} نظام إدارة الأصول التقنية الموحد. جميع الحقوق محفوظة.
+                جميع الحقوق محفوظة وحدة تقنية المعلومات @2026
             </p>
         </div>
     </div>
