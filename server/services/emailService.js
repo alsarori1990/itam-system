@@ -17,10 +17,11 @@ class EmailService {
     try {
       this.settings = settings;
       
-      // Special config for Office 365
+      // Special config for different email providers
       const isOffice365 = settings.host && settings.host.includes('office365');
+      const isGoDaddy = settings.host && settings.host.includes('secureserver');
       
-      this.transporter = nodemailer.createTransport({
+      let transportConfig = {
         host: settings.host,
         port: parseInt(settings.port),
         secure: parseInt(settings.port) === 465, // true for 465, false for other ports
@@ -28,17 +29,30 @@ class EmailService {
           user: settings.user,
           pass: settings.pass,
         },
-        authMethod: isOffice365 ? 'LOGIN' : undefined, // Office 365 requires LOGIN method
         connectionTimeout: 60000, // 60 seconds
         greetingTimeout: 30000,   // 30 seconds
         socketTimeout: 60000,     // 60 seconds
-        requireTLS: !isOffice365, // Office 365 handles TLS differently
         tls: {
-          rejectUnauthorized: false, // More permissive for Office 365
-          minVersion: 'TLSv1.2',
-          ciphers: 'SSLv3'
+          rejectUnauthorized: false, // More permissive
+          minVersion: 'TLSv1.2'
         }
-      });
+      };
+      
+      // GoDaddy specific settings
+      if (isGoDaddy) {
+        transportConfig.authMethod = 'PLAIN';
+        transportConfig.auth.type = 'login';
+        delete transportConfig.requireTLS;
+      }
+      
+      // Office 365 specific settings
+      if (isOffice365) {
+        transportConfig.authMethod = 'LOGIN';
+        transportConfig.requireTLS = false;
+        transportConfig.tls.ciphers = 'SSLv3';
+      }
+      
+      this.transporter = nodemailer.createTransport(transportConfig);
       
       console.log('✅ Email service configured successfully');
       return true;
