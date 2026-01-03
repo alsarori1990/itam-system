@@ -16,6 +16,10 @@ class EmailService {
 
     try {
       this.settings = settings;
+      
+      // Special config for Office 365
+      const isOffice365 = settings.host && settings.host.includes('office365');
+      
       this.transporter = nodemailer.createTransport({
         host: settings.host,
         port: parseInt(settings.port),
@@ -24,13 +28,15 @@ class EmailService {
           user: settings.user,
           pass: settings.pass,
         },
+        authMethod: isOffice365 ? 'LOGIN' : undefined, // Office 365 requires LOGIN method
         connectionTimeout: 60000, // 60 seconds
         greetingTimeout: 30000,   // 30 seconds
         socketTimeout: 60000,     // 60 seconds
-        requireTLS: true,         // Force STARTTLS
+        requireTLS: !isOffice365, // Office 365 handles TLS differently
         tls: {
-          rejectUnauthorized: true, // Verify SSL certificate like Odoo
-          minVersion: 'TLSv1.2'     // Use modern TLS
+          rejectUnauthorized: false, // More permissive for Office 365
+          minVersion: 'TLSv1.2',
+          ciphers: 'SSLv3'
         }
       });
       
