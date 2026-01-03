@@ -355,15 +355,7 @@ export const PublicTicketPage: React.FC<PublicTicketPageProps> = ({ onBack }) =>
                         </button>
                     </div>
 
-                    <div className="text-center pt-2">
-                        <button 
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); onBack(); }}
-                            className="text-xs text-slate-400 hover:text-blue-600 flex items-center justify-center gap-1 transition-colors mx-auto"
-                        >
-                            <ArrowLeft size={12} /> العودة لتسجيل الدخول / Back to Login
-                        </button>
-                    </div>
+
                 </form>
             </div>
         </div>
