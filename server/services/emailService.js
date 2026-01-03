@@ -24,11 +24,13 @@ class EmailService {
           user: settings.user,
           pass: settings.pass,
         },
-        tls: {
         connectionTimeout: 60000, // 60 seconds
         greetingTimeout: 30000,   // 30 seconds
-        socketTimeout: 60000,     // 60 seconds,
-          rejectUnauthorized: false // للتطوير - في الإنتاج ضعها true
+        socketTimeout: 60000,     // 60 seconds
+        requireTLS: true,         // Force STARTTLS
+        tls: {
+          rejectUnauthorized: true, // Verify SSL certificate like Odoo
+          minVersion: 'TLSv1.2'     // Use modern TLS
         }
       });
       
