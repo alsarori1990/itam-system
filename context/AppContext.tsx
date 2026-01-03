@@ -386,7 +386,16 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const loadTickets = async () => {
       try {
           const newTickets = await apiService.getTickets();
-          setTickets(Array.isArray(newTickets) ? newTickets : []);
+          const ticketsArray = Array.isArray(newTickets) ? newTickets : [];
+          
+          // Merge with localStorage resolvedBy data
+          const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+          const enhancedTickets = ticketsArray.map(ticket => ({
+              ...ticket,
+              resolvedBy: ticketResolutions[ticket.id] || ticket.resolvedBy
+          }));
+          
+          setTickets(enhancedTickets);
       } catch (error) {
           console.error('Failed to load tickets:', error);
           setTickets([]);
@@ -532,7 +541,15 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
               if (newPortalTickets.length > 0) {
                   playNotificationSound();
-                  setTickets(latestTickets);
+                  
+                  // Merge with localStorage resolvedBy data
+                  const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+                  const enhancedTickets = latestTickets.map((ticket: any) => ({
+                      ...ticket,
+                      resolvedBy: ticketResolutions[ticket.id] || ticket.resolvedBy
+                  }));
+                  
+                  setTickets(enhancedTickets);
                   addNotification(`تذكرة جديدة من البوابة العامة! (${newPortalTickets.length})`, 'info');
               }
           } catch (error) {
@@ -877,17 +894,35 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         if (status === TicketStatus.IN_PROGRESS && !oldTicket.startedAt) updates.startedAt = now;
         if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) {
             updates.resolvedAt = now;
-            updates.resolvedBy = currentUser?.name; // Save who resolved the ticket
+            updates.resolvedBy = currentUser?.name || 'غير محدد'; // Save who resolved the ticket
+            
+            // Save resolvedBy to localStorage for reports (since backend doesn't support it yet)
+            const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+            ticketResolutions[id] = currentUser?.name || 'غير محدد';
+            localStorage.setItem('ticketResolutions', JSON.stringify(ticketResolutions));
         }
         if (status === TicketStatus.CLOSED && !oldTicket.closedAt) updates.closedAt = now;
         if (status === TicketStatus.REOPENED) { 
             updates.resolvedAt = undefined; 
             updates.closedAt = undefined; 
             updates.resolvedBy = undefined; // Clear resolved by when reopening
+            
+            // Remove from localStorage when reopening
+            const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+            delete ticketResolutions[id];
+            localStorage.setItem('ticketResolutions', JSON.stringify(ticketResolutions));
         }
         
-        const updatedTicket = await apiService.updateTicket(id, updates);
-        setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
+        // For now, don't send resolvedBy to backend (it doesn't support it)
+        const backendUpdates = { ...updates };
+        delete backendUpdates.resolvedBy;
+        
+        const updatedTicket = await apiService.updateTicket(id, backendUpdates);
+        
+        // Manually add resolvedBy to the local state
+        const finalTicket = { ...updatedTicket, resolvedBy: updates.resolvedBy };
+        setTickets(prev => prev.map(t => t.id === id ? finalTicket : t));
+        
         logSystemEvent('TICKET_STATUS_CHANGE', `تغيير حالة التذكرة إلى ${status}`, undefined, id);
         if (status === TicketStatus.RESOLVED) addNotification(`تم حل التذكرة ${id}`, 'success');
     } catch (error) {

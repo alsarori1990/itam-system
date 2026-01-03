@@ -236,7 +236,9 @@ export const SmartReports: React.FC = () => {
     const resolvedTickets = data.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED);
     const byUserResolved = resolvedTickets.reduce((acc, curr) => {
         // Use resolvedBy field to track who actually resolved the ticket
-        let userLabel = curr.resolvedBy || 'غير محدد';
+        // If not available, check localStorage for fallback data
+        const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+        let userLabel = curr.resolvedBy || ticketResolutions[curr.id] || 'غير محدد';
         
         // Try to find the full name in the users list if it's an ID or email
         const matchedUser = users.find(u => u.id === userLabel || u.name === userLabel || u.email === userLabel);
