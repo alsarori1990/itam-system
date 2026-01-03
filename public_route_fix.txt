@@ -1,0 +1,13 @@
+// @route   POST /api/tickets/public
+// @desc    Create new ticket from public portal
+// @access  Public (no authentication)
+router.post('/public', async (req, res) => {
+  try {
+    const ticket = new Ticket(req.body);
+    await ticket.save();
+    res.status(201).json(ticket);
+  } catch (error) {
+    console.error('Error creating public ticket:', error);
+    res.status(500).json({ error: 'Server error', details: error.message });
+  }
+});

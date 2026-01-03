@@ -232,13 +232,13 @@ export const SmartReports: React.FC = () => {
         return acc;
     }, {} as Record<string, number>);
 
-    // By Assigned User (Resolved Tickets Only)
-    // Fix: Map ID/String to Full Name if possible
+    // By User who Resolved the Tickets (Resolved Tickets Only)
     const resolvedTickets = data.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED);
     const byUserResolved = resolvedTickets.reduce((acc, curr) => {
-        let userLabel = curr.assignedTo || 'غير معين';
+        // Use resolvedBy field to track who actually resolved the ticket
+        let userLabel = curr.resolvedBy || 'غير محدد';
         
-        // Try to find the full name in the users list
+        // Try to find the full name in the users list if it's an ID or email
         const matchedUser = users.find(u => u.id === userLabel || u.name === userLabel || u.email === userLabel);
         if (matchedUser) {
             userLabel = matchedUser.name;

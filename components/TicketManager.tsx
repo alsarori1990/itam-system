@@ -746,6 +746,12 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                                         )}
                                      </div>
                                      <span className="text-sm text-slate-800">{activeTicket.resolvedAt ? new Date(activeTicket.resolvedAt).toLocaleString('en-GB') : '--'}</span>
+                                     {activeTicket.resolvedBy && (
+                                         <div className="mt-1">
+                                             <span className="text-xs text-slate-500">تم الحل بواسطة: </span>
+                                             <span className="text-xs font-medium text-emerald-700">{activeTicket.resolvedBy}</span>
+                                         </div>
+                                     )}
                                  </div>
                             </div>
                         </div>

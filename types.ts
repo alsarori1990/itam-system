@@ -82,6 +82,7 @@ export interface Ticket {
   // Resolution Details
   resolutionType?: 'ROUTINE' | 'SPECIALIZED';
   resolutionDetails?: string;
+  resolvedBy?: string; // User who marked as resolved
 
   // Timestamps
   receivedAt: string; // ISO Date - The critical one

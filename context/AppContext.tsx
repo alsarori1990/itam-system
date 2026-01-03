@@ -875,9 +875,16 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         if (resolutionData) { updates.resolutionType = resolutionData.type; updates.resolutionDetails = resolutionData.details; }
         const now = new Date().toISOString();
         if (status === TicketStatus.IN_PROGRESS && !oldTicket.startedAt) updates.startedAt = now;
-        if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) updates.resolvedAt = now;
+        if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) {
+            updates.resolvedAt = now;
+            updates.resolvedBy = currentUser?.name; // Save who resolved the ticket
+        }
         if (status === TicketStatus.CLOSED && !oldTicket.closedAt) updates.closedAt = now;
-        if (status === TicketStatus.REOPENED) { updates.resolvedAt = undefined; updates.closedAt = undefined; }
+        if (status === TicketStatus.REOPENED) { 
+            updates.resolvedAt = undefined; 
+            updates.closedAt = undefined; 
+            updates.resolvedBy = undefined; // Clear resolved by when reopening
+        }
         
         const updatedTicket = await apiService.updateTicket(id, updates);
         setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
