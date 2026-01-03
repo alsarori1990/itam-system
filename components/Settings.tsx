@@ -173,6 +173,29 @@ export const Settings: React.FC = () => {
       adminEmails: ''
   });
 
+  // Load SMTP settings from API on component mount
+  useEffect(() => {
+      const loadSmtpSettings = async () => {
+          try {
+              const response = await fetch('http://72.62.149.231/api/config/smtp', {
+                  headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                  }
+              });
+              
+              if (response.ok) {
+                  const data = await response.json();
+                  setSmtpForm(data);
+                  updateSmtpSettings(data);
+              }
+          } catch (error) {
+              console.error('Failed to load SMTP settings:', error);
+          }
+      };
+      
+      loadSmtpSettings();
+  }, []);
+
   useEffect(() => {
       if (config.smtpSettings) {
           setSmtpForm(config.smtpSettings);
