@@ -115,7 +115,9 @@ class ApiService {
     const response = await fetch(`${API_BASE_URL}/assets`, {
       headers: this.getHeaders(),
     });
-    return this.handleResponse(response);
+    const data = await this.handleResponse(response);
+    // Backend returns {assets: [], totalPages, currentPage, total}
+    return data.assets || [];
   }
 
   async createAsset(assetData: any): Promise<any> {
