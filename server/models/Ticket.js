@@ -7,6 +7,14 @@ const ticketSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  ticketId: { // Frontend uses this field
+    type: String,
+    index: true
+  },
+  title: { // Email subject
+    type: String,
+    trim: true
+  },
   requesterName: {
     type: String,
     required: true,
@@ -55,7 +63,7 @@ const ticketSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ['جديد', 'تم التعيين', 'جاري العمل', 'في الانتظار', 'تم الحل', 'مغلقة', 'معاد فتحها'],
+    enum: ['جديد', 'تم التعيين', 'جاري العمل', 'مصعّد', 'في الانتظار', 'تم الحل', 'مغلقة', 'معاد فتحها'],
     default: 'جديد',
     index: true
   },
@@ -63,6 +71,19 @@ const ticketSchema = new mongoose.Schema({
     type: String,
     index: true
   },
+  escalationHistory: [{
+    id: String,
+    timestamp: { type: Date, default: Date.now },
+    fromUser: String,
+    toUser: String,
+    action: {
+      type: String,
+      enum: ['AUTO_ASSIGN', 'ESCALATE', 'REASSIGN']
+    },
+    reason: String,
+    fromLevel: String,
+    toLevel: String
+  }],
   resolutionType: {
     type: String,
     enum: ['ROUTINE', 'SPECIALIZED']
@@ -102,7 +123,10 @@ const ticketSchema = new mongoose.Schema({
 ticketSchema.index({ requesterName: 'text', description: 'text' });
 ticketSchema.index({ status: 1, branch: 1 });
 ticketSchema.index({ receivedAt: -1 });
+ticketSchema.index({ createdAt: -1 }); // For sorting by creation date
 ticketSchema.index({ assignedTo: 1, status: 1 });
+ticketSchema.index({ channel: 1, createdAt: -1 }); // For email tickets
+ticketSchema.index({ category: 1, priority: 1 }); // For filtering
 
 // Calculate response and resolution times before saving
 ticketSchema.pre('save', function(next) {

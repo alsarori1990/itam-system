@@ -1,6 +1,7 @@
 import express from 'express';
 import Asset from '../models/Asset.js';
 import { authMiddleware, checkPermission } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -147,6 +148,28 @@ router.post('/bulk', authMiddleware, checkPermission('assets', 'create'), async 
     res.status(201).json({
       message: `${createdAssets.length} assets imported successfully`,
       count: createdAssets.length
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// @route   POST /api/assets/upload
+// @desc    Upload asset image
+// @access  Private
+router.post('/upload', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'لم يتم رفع أي ملف' });
+    }
+
+    // Return the file path
+    const imagePath = `/uploads/assets/${req.file.filename}`;
+    
+    res.json({
+      message: 'تم رفع الصورة بنجاح',
+      imagePath: imagePath,
+      filename: req.file.filename
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

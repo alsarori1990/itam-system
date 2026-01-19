@@ -102,6 +102,55 @@ router.post('/smtp', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/config/permissions
+// @desc    Get role permissions matrix
+// @access  Private
+router.get('/permissions', authenticateToken, async (req, res) => {
+  try {
+    const config = await Config.findOne({ key: 'role_permissions' });
+    
+    if (!config) {
+      return res.json(null); // Return null to use default permissions
+    }
+    
+    res.json(config.value);
+  } catch (error) {
+    console.error('Error fetching permissions:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/config/permissions
+// @desc    Update role permissions matrix
+// @access  Private (Super Admin only)
+router.post('/permissions', authenticateToken, async (req, res) => {
+  try {
+    const { permissions } = req.body;
+    
+    if (!permissions) {
+      return res.status(400).json({ error: 'Permissions data required' });
+    }
+    
+    await Config.findOneAndUpdate(
+      { key: 'role_permissions' },
+      { 
+        value: permissions,
+        updatedBy: req.user?.email || 'admin',
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+    
+    res.json({ 
+      message: 'تم حفظ صلاحيات الأدوار بنجاح',
+      permissions
+    });
+  } catch (error) {
+    console.error('Error updating permissions:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   POST /api/config/smtp/test
 // @desc    Test SMTP connection
 // @access  Private

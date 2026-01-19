@@ -27,7 +27,10 @@ const getFieldLabel = (field: string) => {
     notes: 'ملاحظات',
     disposalDate: 'تاريخ الإتلاف/البيع',
     disposalNotes: 'ملاحظات الإتلاف/البيع',
-    image: 'صورة الأصل'
+    image: 'صورة الأصل',
+    lastUpdated: 'آخر تحديث',
+    price: 'السعر',
+    specifications: 'المواصفات'
   };
   return map[field] || field;
 };
@@ -46,7 +49,7 @@ const getActionStyle = (type: string) => {
 };
 
 export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) => {
-  const { assets = [], deleteAsset, addAssetsBulk, config, getAssetHistory, isMfaEnabled, hasPermission } = useApp();
+  const { assets = [], deleteAsset, addAssetsBulk, config, getAssetHistory, isMfaEnabled, hasPermission, showConfirm } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce search for performance
   const [showFilters, setShowFilters] = useState(false);
@@ -303,9 +306,16 @@ export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) 
           }
 
           if (parsedAssets.length > 0) {
-              if (confirm(`تم العثور على ${parsedAssets.length} أصل. هل تريد استيرادها؟`)) {
-                  addAssetsBulk(parsedAssets);
-              }
+              showConfirm(
+                  `تم العثور على ${parsedAssets.length} أصل. هل تريد استيرادها؟`,
+                  () => {
+                      addAssetsBulk(parsedAssets);
+                      e.target.value = '';
+                  },
+                  undefined,
+                  'استيراد',
+                  'إلغاء'
+              );
           } else {
               alert('لم يتم العثور على بيانات صالحة في الملف.');
           }
@@ -451,8 +461,16 @@ export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) 
                                                 {log.changes.map((change, idx) => (
                                                     <tr key={idx}>
                                                     <td className="px-3 py-2 font-medium text-slate-700">{getFieldLabel(change.fieldName)}</td>
-                                                    <td className="px-3 py-2 text-rose-700 bg-rose-50/50 line-through decoration-rose-300">{String(change.oldValue)}</td>
-                                                    <td className="px-3 py-2 text-emerald-700 bg-emerald-50/50 font-bold">{String(change.newValue)}</td>
+                                                    <td className="px-3 py-2 text-rose-700 bg-rose-50/50 line-through decoration-rose-300">
+                                                      {change.oldValue !== null && change.oldValue !== undefined && change.oldValue !== '' 
+                                                        ? String(change.oldValue) 
+                                                        : <span className="text-slate-400 italic">فارغ</span>}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-emerald-700 bg-emerald-50/50 font-bold">
+                                                      {change.newValue !== null && change.newValue !== undefined && change.newValue !== '' 
+                                                        ? String(change.newValue) 
+                                                        : <span className="text-slate-400 italic">فارغ</span>}
+                                                    </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -698,7 +716,11 @@ export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) 
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {asset.image ? (
-                          <img src={asset.image} alt={asset.name} className="w-10 h-10 rounded-lg object-cover bg-slate-200" />
+                          <img 
+                            src={asset.image.startsWith('/uploads') ? `http://72.62.149.231${asset.image}` : asset.image} 
+                            alt={asset.name} 
+                            className="w-10 h-10 rounded-lg object-cover bg-slate-200" 
+                          />
                       ) : (
                           <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs">img</div>
                       )}
@@ -877,7 +899,11 @@ export const AssetList: React.FC<AssetListProps> = ({ onEdit, initialFilters }) 
                       <div className="w-full md:w-1/3">
                         <div className="aspect-square rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
                           {selectedAsset.image ? (
-                            <img src={selectedAsset.image} alt={selectedAsset.name} className="w-full h-full object-cover" />
+                            <img 
+                              src={selectedAsset.image.startsWith('/uploads') ? `http://72.62.149.231${selectedAsset.image}` : selectedAsset.image} 
+                              alt={selectedAsset.name} 
+                              className="w-full h-full object-cover" 
+                            />
                           ) : (
                             <Server size={48} className="text-slate-300" />
                           )}

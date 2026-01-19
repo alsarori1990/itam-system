@@ -27,8 +27,13 @@ const userSchema = new mongoose.Schema({
   },
   roles: [{
     type: String,
-    enum: ['Super Admin', 'IT Manager', 'IT Technician', 'Auditor / Finance', 'Viewer']
+    enum: ['مدير النظام', 'موظف دعم فني', 'أخصائي تقنية المعلومات', 'مشرف وحدة تقنية المعلومات']
   }],
+  supportLevel: {
+    type: String,
+    enum: ['موظف دعم فني', 'أخصائي تقنية المعلومات', 'مشرف وحدة تقنية المعلومات'],
+    default: null
+  },
   branches: [{
     type: String
   }],
@@ -47,6 +52,33 @@ const userSchema = new mongoose.Schema({
     select: false
   },
   isMfaEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // External user fields
+  userType: {
+    type: String,
+    enum: ['INTERNAL', 'EXTERNAL'],
+    default: 'INTERNAL'
+  },
+  isGuest: {
+    type: Boolean,
+    default: false
+  },
+  guestCreatedFrom: {
+    type: String,
+    enum: ['EMAIL', 'PORTAL', 'MANUAL'],
+    default: null
+  },
+  allowEmailAccess: {
+    type: Boolean,
+    default: false
+  },
+  canAccessPortal: {
+    type: Boolean,
+    default: false
+  },
+  emailVerified: {
     type: Boolean,
     default: false
   }

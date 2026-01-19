@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { Ticket, TicketStatus, TicketPriority, TicketChannel } from '../types';
-import { Search, Plus, Filter, MessageSquare, Clock, User, CheckCircle2, AlertCircle, PlayCircle, XCircle, MoreVertical, Edit2, Calendar, ArrowRight, Inbox, CheckSquare, Activity, Wrench, FileText, FileSpreadsheet, Download, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Search, Plus, Filter, MessageSquare, Clock, User, CheckCircle2, AlertCircle, PlayCircle, XCircle, MoreVertical, Edit2, Calendar, ArrowRight, Inbox, CheckSquare, Activity, Wrench, FileText, FileSpreadsheet, Download, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Trash2, Bell, ClipboardCheck, Folder } from 'lucide-react';
 import { useDebounce } from '../utils/performanceUtils';
 
 interface TicketManagerProps {
@@ -10,7 +10,7 @@ interface TicketManagerProps {
 }
 
 export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) => {
-  const { tickets = [], assets = [], config, addTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, deleteTicket, getTicketHistory, getStats, hasPermission } = useApp();
+  const { tickets = [], assets = [], config, currentUser, allUsers = [], addTicket, addTicketsBulk, updateTicketStatus, updateTicketCategory, adjustTicketTime, deleteTicket, getTicketHistory, getStats, hasPermission, loadMoreTickets, hasMoreTickets, showConfirm } = useApp();
   
   // States
   const [view, setView] = useState<'list' | 'detail' | 'create'>('list');
@@ -18,6 +18,8 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [searchResults, setSearchResults] = useState<Ticket[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,6 +39,21 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
   const [resolutionType, setResolutionType] = useState<'ROUTINE' | 'SPECIALIZED'>('ROUTINE');
   const [resolutionDetails, setResolutionDetails] = useState('');
 
+  // Escalation Modal State
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalationReason, setEscalationReason] = useState('');
+
+  // Reassignment Modal State
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignTargetUserId, setReassignTargetUserId] = useState('');
+  const [reassignInstructions, setReassignInstructions] = useState('');
+
+  // Category Edit Modal State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategoryTicket, setEditingCategoryTicket] = useState<Ticket | null>(null);
+  const [newCategory, setNewCategory] = useState('');
+  const [autoStartWork, setAutoStartWork] = useState(false);
+
   // Create Form State
   const [newTicket, setNewTicket] = useState<Partial<Ticket>>({});
 
@@ -45,10 +62,25 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
   // IMPORTANT: Filter Tickets by Permission First
   const accessibleTickets = tickets.filter(t => hasPermission('tickets', 'view', t));
 
+  // Filter escalated tickets assigned to current user
+  const escalatedToMe = accessibleTickets.filter(t => 
+    t.assignedTo === currentUser?.name && 
+    t.status === TicketStatus.ESCALATED
+  );
+
+  // Filter ALL tickets assigned to current user (not closed/resolved)
+  const assignedToMe = accessibleTickets.filter(t => 
+    t.assignedTo === currentUser?.name && 
+    t.status !== TicketStatus.CLOSED && 
+    t.status !== TicketStatus.RESOLVED
+  );
+
   // Derived Counts
   const newTicketsCount = accessibleTickets.filter(t => t.status === TicketStatus.NEW).length;
   const closedTicketsCount = accessibleTickets.filter(t => t.status === TicketStatus.CLOSED).length;
   const openCount = accessibleTickets.filter(t => t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED).length;
+  const escalatedToMeCount = escalatedToMe.length;
+  const assignedToMeCount = assignedToMe.length;
 
 
   // Apply Initial Filters
@@ -73,14 +105,52 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
   useEffect(() => {
       setCurrentPage(1);
   }, [searchTerm, filterStatus]);
+  
+  // Search from server when search term changes
+  useEffect(() => {
+    const searchFromServer = async () => {
+      if (debouncedSearchTerm && debouncedSearchTerm.length >= 2) {
+        setIsSearching(true);
+        try {
+          const response = await fetch(`/api/tickets?search=${encodeURIComponent(debouncedSearchTerm)}&limit=500`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            const searchTickets = Array.isArray(result) ? result : (result.tickets || []);
+            setSearchResults(searchTickets);
+          }
+        } catch (error) {
+          console.error('Search error:', error);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    };
+    
+    searchFromServer();
+  }, [debouncedSearchTerm]);
 
   // Filter Logic with useMemo for performance
-  const filteredTickets = useMemo(() => accessibleTickets.filter(t => {
-     const matchesSearch = t.requesterName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || t.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+  const filteredTickets = useMemo(() => {
+    // Use search results if searching, otherwise use loaded tickets
+    const sourceTickets = searchResults.length > 0 || isSearching ? searchResults : accessibleTickets;
+    
+    return sourceTickets.filter(t => {
+     const matchesSearch = searchResults.length > 0 || !debouncedSearchTerm || 
+                          t.requesterName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+                          t.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
      
      let matchesStatus = true;
      if (filterStatus === 'ALL') {
          matchesStatus = true;
+     } else if (filterStatus === 'ASSIGNED_TO_ME') {
+         matchesStatus = t.assignedTo === currentUser?.name && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED;
      } else if (filterStatus === 'OPEN_GROUP') {
          matchesStatus = t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED;
      } else {
@@ -88,7 +158,8 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
      }
 
      return matchesSearch && matchesStatus;
-  }), [accessibleTickets, debouncedSearchTerm, filterStatus]);
+  });
+  }, [accessibleTickets, debouncedSearchTerm, filterStatus, searchResults, isSearching]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
@@ -134,6 +205,89 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
           setResolutionDetails('');
           setResolutionType('ROUTINE');
       }
+  };
+
+  const handleEscalateSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedTicket || !escalationReason.trim()) return;
+
+      try {
+          const response = await fetch(`/api/tickets/${selectedTicket.id}/escalate`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              },
+              body: JSON.stringify({ reason: escalationReason })
+          });
+
+          if (!response.ok) {
+              const error = await response.json();
+              alert(error.error || 'فشل التصعيد');
+              return;
+          }
+
+          const updatedTicket = await response.json();
+          // Update ticket in context (AppContext should have a method for this)
+          window.location.reload(); // Temporary: reload to get updated data
+          setShowEscalateModal(false);
+          setEscalationReason('');
+      } catch (error) {
+          console.error('Escalation error:', error);
+          alert('حدث خطأ أثناء التصعيد');
+      }
+  };
+
+  const handleReassignSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedTicket || !reassignTargetUserId || !reassignInstructions.trim()) return;
+
+      try {
+          const response = await fetch(`/api/tickets/${selectedTicket.id}/reassign`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              },
+              body: JSON.stringify({ 
+                  targetUserId: reassignTargetUserId,
+                  instructions: reassignInstructions 
+              })
+          });
+
+          if (!response.ok) {
+              const error = await response.json();
+              alert(error.error || 'فشل إعادة الإسناد');
+              return;
+          }
+
+          const updatedTicket = await response.json();
+          // Update ticket in context
+          window.location.reload(); // Temporary: reload to get updated data
+          setShowReassignModal(false);
+          setReassignTargetUserId('');
+          setReassignInstructions('');
+      } catch (error) {
+          console.error('Reassignment error:', error);
+          alert('حدث خطأ أثناء إعادة الإسناد');
+      }
+  };
+
+  const handleCategoryUpdate = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingCategoryTicket || !newCategory) return;
+
+      await updateTicketCategory(editingCategoryTicket.id, newCategory);
+      
+      // إذا كان autoStartWork مفعل، ابدأ العمل تلقائياً
+      if (autoStartWork) {
+          await updateTicketStatus(editingCategoryTicket.id, TicketStatus.IN_PROGRESS);
+          setAutoStartWork(false);
+      }
+      
+      setShowCategoryModal(false);
+      setEditingCategoryTicket(null);
+      setNewCategory('');
   };
 
   const handleExportTickets = () => {
@@ -358,9 +512,16 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
           }
 
           if (parsedTickets.length > 0) {
-              if (confirm(`تم العثور على ${parsedTickets.length} تذكرة صالحة. هل تريد استيرادها؟`)) {
-                  addTicketsBulk(parsedTickets);
-              }
+              showConfirm(
+                  `تم العثور على ${parsedTickets.length} تذكرة صالحة. هل تريد استيرادها؟`,
+                  () => {
+                      addTicketsBulk(parsedTickets);
+                      fileInputRef.current!.value = '';
+                  },
+                  undefined,
+                  'استيراد',
+                  'إلغاء'
+              );
           } else {
               alert('لم يتم العثور على بيانات صالحة. يرجى التأكد من أن الملف يحتوي على البيانات وتطابق العناوين.');
           }
@@ -397,6 +558,32 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
         {/* Top KPI Cards (Only in List View) */}
         {view === 'list' && (
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Assigned to Me - First Priority */}
+                {assignedToMeCount > 0 && (
+                <div 
+                    onClick={() => toggleFilter('ASSIGNED_TO_ME')}
+                    className={`bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border-2 shadow-md cursor-pointer transition-all ${
+                        filterStatus === 'ASSIGNED_TO_ME' 
+                        ? 'border-emerald-500 ring-2 ring-emerald-200 shadow-lg' 
+                        : 'border-emerald-300 hover:border-emerald-400 hover:shadow-lg'
+                    }`}
+                >
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="text-xs text-emerald-700 font-bold mb-1 flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                مسندة إليّ
+                            </p>
+                            <h3 className="text-3xl font-bold text-emerald-600">{assignedToMeCount}</h3>
+                            <p className="text-xs text-emerald-600 mt-1">تذاكر تحت مسؤوليتك</p>
+                        </div>
+                        <div className={`p-2 rounded-lg ${filterStatus === 'ASSIGNED_TO_ME' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
+                            <ClipboardCheck size={22} />
+                        </div>
+                    </div>
+                </div>
+                )}
+
                 {/* New Tickets Filter */}
                 <div 
                     onClick={() => toggleFilter(TicketStatus.NEW)}
@@ -416,6 +603,31 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                         </div>
                     </div>
                 </div>
+
+                {/* Escalated to Me Filter - Only show if user has escalated tickets */}
+                {escalatedToMeCount > 0 && (
+                    <div 
+                        onClick={() => toggleFilter(TicketStatus.ESCALATED)}
+                        className={`bg-white p-4 rounded-xl border shadow-sm cursor-pointer transition-all ${
+                            filterStatus === TicketStatus.ESCALATED 
+                            ? 'border-purple-500 ring-2 ring-purple-100' 
+                            : 'border-slate-200 hover:border-purple-300'
+                        }`}
+                    >
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1">
+                                    <ArrowRight size={14} className="rotate-90" />
+                                    مصعّدة إليّ
+                                </p>
+                                <h3 className="text-2xl font-bold text-purple-600">{escalatedToMeCount}</h3>
+                            </div>
+                            <div className={`p-2 rounded-lg ${filterStatus === TicketStatus.ESCALATED ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600'}`}>
+                                <Bell size={20} className="animate-pulse" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Open Tickets Filter */}
                 <div 
@@ -575,16 +787,38 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                     </button>
                     {/* Permission Based Buttons */}
                     <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                        {hasPermission('tickets', 'update', activeTicket) && activeTicket.status === TicketStatus.NEW && (
-                            <button onClick={() => updateTicketStatus(activeTicket.id, TicketStatus.IN_PROGRESS)} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700">
+                        {/* بدء العمل - للتذاكر الجديدة أو المسندة */}
+                        {hasPermission('tickets', 'update', activeTicket) && 
+                         (activeTicket.status === TicketStatus.NEW || activeTicket.status === TicketStatus.ASSIGNED) && (
+                            <button onClick={() => {
+                                // التحقق من التصنيف للتذاكر القادمة من Email أو Portal
+                                const needsCategory = (activeTicket.channel === 'Email' || activeTicket.channel === 'Portal') && 
+                                                     (activeTicket.category === 'أخرى' || activeTicket.category === 'غير محدد' || !activeTicket.category);
+                                
+                                if (needsCategory) {
+                                    // فتح modal التصنيف وتفعيل البدء التلقائي
+                                    setEditingCategoryTicket(activeTicket);
+                                    setNewCategory(activeTicket.category || '');
+                                    setAutoStartWork(true);
+                                    setShowCategoryModal(true);
+                                } else {
+                                    // بدء العمل مباشرة
+                                    updateTicketStatus(activeTicket.id, TicketStatus.IN_PROGRESS);
+                                }
+                            }} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700">
                                 <PlayCircle size={18} /> بدء العمل
                             </button>
                         )}
-                        {hasPermission('tickets', 'update', activeTicket) && activeTicket.status === TicketStatus.IN_PROGRESS && (
+                        {/* تم الحل - للتذاكر قيد العمل أو المصعدة أو المسندة */}
+                        {hasPermission('tickets', 'update', activeTicket) && 
+                         (activeTicket.status === TicketStatus.IN_PROGRESS || 
+                          activeTicket.status === TicketStatus.ASSIGNED || 
+                          activeTicket.status === TicketStatus.ESCALATED) && (
                              <button onClick={() => setShowResolveModal(true)} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700">
                                 <CheckCircle2 size={18} /> تم الحل
                             </button>
                         )}
+                        {/* إغلاق التذكرة - للتذاكر المحلولة */}
                         {hasPermission('tickets', 'change_status_closed', activeTicket) && (activeTicket.status === TicketStatus.RESOLVED) && (
                              <button onClick={() => updateTicketStatus(activeTicket.id, TicketStatus.CLOSED)} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-slate-800 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-slate-900">
                                 <XCircle size={18} /> إغلاق التذكرة
@@ -592,14 +826,57 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                         )}
                         {hasPermission('tickets', 'delete', activeTicket) && (
                              <button onClick={() => {
-                                if (window.confirm(`هل أنت متأكد من حذف التذكرة ${activeTicket.id}؟`)) {
-                                    deleteTicket(activeTicket.id);
-                                    setView('list');
-                                }
+                                showConfirm(
+                                    `هل أنت متأكد من حذف التذكرة ${activeTicket.id}؟`,
+                                    () => {
+                                        deleteTicket(activeTicket.id);
+                                        setView('list');
+                                    },
+                                    undefined,
+                                    'حذف',
+                                    'إلغاء'
+                                );
                              }} className="flex-1 sm:flex-none justify-center px-4 py-2 bg-red-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-red-700">
                                 <Trash2 size={18} /> حذف
                             </button>
                         )}
+                        {/* Escalation Button */}
+                        {(() => {
+                            const { currentUser } = useApp();
+                            const canEscalate = currentUser?.supportLevel && 
+                                              currentUser.supportLevel !== 'مشرف وحدة تقنية المعلومات' &&
+                                              activeTicket.status !== TicketStatus.RESOLVED &&
+                                              activeTicket.status !== TicketStatus.CLOSED;
+                            
+                            if (canEscalate) {
+                                return (
+                                    <button 
+                                        onClick={() => setShowEscalateModal(true)}
+                                        className="flex-1 sm:flex-none justify-center px-4 py-2 bg-amber-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-amber-700">
+                                        <ArrowRight size={18} className="rotate-90" /> تصعيد
+                                    </button>
+                                );
+                            }
+                            return null;
+                        })()}
+                        {/* Reassignment Button (All Support Levels) */}
+                        {(() => {
+                            const { currentUser } = useApp();
+                            const canReassign = currentUser?.supportLevel && 
+                                              activeTicket.status !== TicketStatus.RESOLVED &&
+                                              activeTicket.status !== TicketStatus.CLOSED;
+                            
+                            if (canReassign) {
+                                return (
+                                    <button 
+                                        onClick={() => setShowReassignModal(true)}
+                                        className="flex-1 sm:flex-none justify-center px-4 py-2 bg-purple-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700">
+                                        <User size={18} /> إعادة إسناد
+                                    </button>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
                 </div>
 
@@ -616,8 +893,20 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                                     {activeTicket.priority}
                                 </span>
                             </div>
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
-                                 <p className="text-slate-700 leading-relaxed">{activeTicket.description}</p>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4 max-w-full overflow-hidden">
+                                {activeTicket.channel === 'Email' && activeTicket.description?.includes('<') ? (
+                                  <div 
+                                    className="text-slate-700 leading-relaxed prose prose-sm max-w-none break-words"
+                                    dangerouslySetInnerHTML={{ __html: activeTicket.description }}
+                                    style={{
+                                      wordBreak: 'break-word',
+                                      overflowWrap: 'anywhere',
+                                      maxWidth: '100%'
+                                    }}
+                                  />
+                                ) : (
+                                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>{activeTicket.description}</p>
+                                )}
                             </div>
 
                             {/* Attachment Section */}
@@ -640,8 +929,39 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                                 </div>
                             )}
 
-                            <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-                                 <span className="flex items-center gap-1"><AlertCircle size={14}/> {activeTicket.category}</span>
+                            <div className="flex flex-wrap gap-4 text-sm text-slate-500 items-center">
+                                 <span className="flex items-center gap-1">
+                                     <AlertCircle size={14}/> {activeTicket.category}
+                                 </span>
+                                 {/* Show warning if category is unclassified and allow editing */}
+                                 {(activeTicket.category === 'أخرى' || activeTicket.category === 'غير محدد') && 
+                                  (activeTicket.channel === 'Email' || activeTicket.channel === 'Portal') && 
+                                  hasPermission('tickets', 'update', activeTicket) && (
+                                     <button
+                                         onClick={() => {
+                                             setEditingCategoryTicket(activeTicket);
+                                             setNewCategory(activeTicket.category);
+                                             setShowCategoryModal(true);
+                                         }}
+                                         className="flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors"
+                                     >
+                                         <Edit2 size={12} /> تصنيف مطلوب
+                                     </button>
+                                 )}
+                                 {/* Allow all staff to edit category */}
+                                 {hasPermission('tickets', 'update', activeTicket) && (
+                                     <button
+                                         onClick={() => {
+                                             setEditingCategoryTicket(activeTicket);
+                                             setNewCategory(activeTicket.category);
+                                             setShowCategoryModal(true);
+                                         }}
+                                         className="flex items-center gap-1 text-xs text-slate-600 hover:text-blue-600 transition-colors"
+                                         title="تعديل التصنيف"
+                                     >
+                                         <Edit2 size={12} />
+                                     </button>
+                                 )}
                                  {activeTicket.linkedAssetId && <span className="flex items-center gap-1"><MessageSquare size={14}/> أصل مرتبط: {activeTicket.linkedAssetId}</span>}
                             </div>
                         </div>
@@ -663,6 +983,59 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                                         {activeTicket.resolutionDetails}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Escalation History */}
+                        {activeTicket.escalationHistory && activeTicket.escalationHistory.length > 0 && (
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <Activity size={20} className="text-purple-600" /> سجل التصعيد والإسناد
+                                </h3>
+                                <div className="space-y-3">
+                                    {activeTicket.escalationHistory.map((record, index) => (
+                                        <div key={record.id} className="flex gap-3 text-sm pb-3 border-b border-slate-100 last:border-0">
+                                            <div className="mt-1">
+                                                {record.action === 'AUTO_ASSIGN' && <CheckSquare size={16} className="text-blue-500" />}
+                                                {record.action === 'ESCALATE' && <ArrowRight size={16} className="text-amber-500 rotate-90" />}
+                                                {record.action === 'REASSIGN' && <User size={16} className="text-purple-500" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <div>
+                                                        <span className="font-bold text-slate-700 block">
+                                                            {record.action === 'AUTO_ASSIGN' && 'إسناد تلقائي'}
+                                                            {record.action === 'ESCALATE' && 'تصعيد'}
+                                                            {record.action === 'REASSIGN' && 'إعادة إسناد'}
+                                                        </span>
+                                                        <span className="text-xs text-slate-500">
+                                                            من: {record.fromUser || 'النظام'} {record.fromLevel && `(${record.fromLevel})`}
+                                                            {' → '}
+                                                            إلى: {record.toUser} ({record.toLevel})
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-slate-400 text-xs">
+                                                        {new Date(record.timestamp).toLocaleString('ar-SA')}
+                                                    </span>
+                                                </div>
+                                                {record.reason && (
+                                                    <div className={`mt-2 p-2 rounded border text-xs ${
+                                                        record.action === 'ESCALATE' ? 'bg-amber-50 border-amber-100 text-amber-800' :
+                                                        record.action === 'REASSIGN' ? 'bg-purple-50 border-purple-100 text-purple-800' :
+                                                        'bg-blue-50 border-blue-100 text-blue-800'
+                                                    }`}>
+                                                        <span className="font-bold">
+                                                            {record.action === 'ESCALATE' && 'سبب التصعيد: '}
+                                                            {record.action === 'REASSIGN' && 'تعليمات: '}
+                                                            {record.action === 'AUTO_ASSIGN' && 'ملاحظة: '}
+                                                        </span>
+                                                        {record.reason}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -751,6 +1124,17 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                         </div>
 
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                            <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <User size={18} /> مسند إلى
+                            </h3>
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <p className="font-bold text-slate-800">
+                                    {activeTicket.assignedTo || 'غير محدد'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                             <h3 className="font-bold text-slate-800 mb-2">الحالة الحالية</h3>
                             <div className={`p-3 rounded-xl text-center font-bold border-2 ${
                                 activeTicket.status === TicketStatus.RESOLVED ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 
@@ -772,8 +1156,20 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                         <MessageSquare className="text-blue-500" /> تذاكر الدعم الفني
                     </h2>
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                        <input type="text" placeholder="بحث..." className="border border-slate-200 rounded-xl px-4 py-2 text-sm w-full md:w-64 bg-white text-slate-800" 
-                           value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <div className="relative">
+                            <input type="text" placeholder="بحث في جميع التذاكر..." className="border border-slate-200 rounded-xl px-4 py-2 pr-10 text-sm w-full md:w-64 bg-white text-slate-800" 
+                               value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            {isSearching && (
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                                </div>
+                            )}
+                            {searchResults.length > 0 && (
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-green-600 font-bold">
+                                    {searchResults.length}
+                                </div>
+                            )}
+                        </div>
                         
                         {/* Action Buttons Group */}
                         <div className="flex items-center gap-2">
@@ -824,32 +1220,50 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                 
                 {/* Table */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-right">
-                        <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase whitespace-nowrap">
+                    <table className="w-full text-right table-fixed">
+                        <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase">
                             <tr>
-                                <th className="px-6 py-4">رقم التذكرة</th>
-                                <th className="px-6 py-4">مقدم الطلب</th>
-                                <th className="px-6 py-4">الموقع</th>
-                                <th className="px-6 py-4">التصنيف / القناة</th>
-                                <th className="px-6 py-4">الأولوية</th>
-                                <th className="px-6 py-4">وقت الاستلام</th>
-                                <th className="px-6 py-4">الحالة</th>
-                                <th className="px-6 py-4"></th>
+                                <th className="px-6 py-4 w-32">رقم التذكرة</th>
+                                <th className="px-6 py-4 w-40">مقدم الطلب</th>
+                                <th className="px-6 py-4 w-32">الموقع</th>
+                                <th className="px-6 py-4 w-40">التصنيف / القناة</th>
+                                <th className="px-6 py-4 w-24">الأولوية</th>
+                                <th className="px-6 py-4 w-32">وقت الاستلام</th>
+                                <th className="px-6 py-4 w-28">الحالة</th>
+                                <th className="px-6 py-4 w-12"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 whitespace-nowrap">
+                        <tbody className="divide-y divide-slate-100">
                             {paginatedTickets.map(t => (
                                 <tr key={t.id} onClick={() => { setSelectedTicket(t); setView('detail'); }} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                                    <td className="px-6 py-4 font-mono font-bold text-blue-600">{t.id}</td>
                                     <td className="px-6 py-4">
-                                        <p className="font-bold text-slate-800 text-sm">{t.requesterName}</p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-mono font-bold text-blue-600 break-all">{t.id}</span>
+                                            {t.assignedTo === currentUser?.name && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
+                                                    <ClipboardCheck size={10} />
+                                                    مسندة لك
+                                                </span>
+                                            )}
+                                            {t.status === TicketStatus.ESCALATED && t.assignedTo === currentUser?.name && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold border border-purple-200 animate-pulse">
+                                                    <ArrowRight size={10} className="rotate-90" />
+                                                    مصعّدة
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[150px]" title={t.branch}>
-                                        {t.branch}
+                                    <td className="px-6 py-4">
+                                        <p className="font-bold text-slate-800 text-sm break-words overflow-hidden">{t.requesterName}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                        <div className="break-words overflow-hidden" title={t.branch}>
+                                            {t.branch}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-slate-700">{t.category}</span>
+                                            <span className="text-sm font-medium text-slate-700 break-words">{t.category}</span>
                                             <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t.channel}</span>
                                         </div>
                                     </td>
@@ -891,9 +1305,20 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                 {/* Pagination Controls */}
                 {filteredTickets.length > 0 && (
                     <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50" dir="rtl">
-                        <span className="text-xs text-slate-500 font-medium">
-                            عرض {startIndex + 1} إلى {Math.min(startIndex + ITEMS_PER_PAGE, filteredTickets.length)} من أصل {filteredTickets.length} تذكرة
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-slate-500 font-medium">
+                                عرض {startIndex + 1} إلى {Math.min(startIndex + ITEMS_PER_PAGE, filteredTickets.length)} من أصل {filteredTickets.length} تذكرة
+                            </span>
+                            
+                            {hasMoreTickets && (
+                                <button 
+                                    onClick={loadMoreTickets}
+                                    className="px-3 py-1 rounded-lg bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors flex items-center gap-1"
+                                >
+                                    <Download size={14} /> تحميل المزيد من السيرفر
+                                </button>
+                            )}
+                        </div>
                         
                         <div className="flex items-center gap-2">
                             <button 
@@ -975,6 +1400,204 @@ export const TicketManager: React.FC<TicketManagerProps> = ({ initialFilters }) 
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        )}
+
+        {/* Escalate Ticket Modal */}
+        {showEscalateModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6">
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <ArrowRight className="text-amber-600 rotate-90" size={24} /> تصعيد التذكرة
+                    </h3>
+                    
+                    <form onSubmit={handleEscalateSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                سبب التصعيد <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea 
+                                required
+                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-amber-500 outline-none h-32 resize-none"
+                                placeholder="اشرح سبب تصعيد هذه التذكرة للمستوى الأعلى..."
+                                value={escalationReason}
+                                onChange={(e) => setEscalationReason(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                سيتم إرسال التذكرة تلقائياً إلى {(() => {
+                                    const { currentUser } = useApp();
+                                    if (currentUser?.supportLevel === 'موظف دعم') return 'أخصائي';
+                                    if (currentUser?.supportLevel === 'أخصائي') return 'مشرف';
+                                    return 'المستوى الأعلى';
+                                })()} متاح في نفس الفرع
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-slate-100">
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setShowEscalateModal(false);
+                                    setEscalationReason('');
+                                }} 
+                                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">
+                                إلغاء
+                            </button>
+                            <button 
+                                type="submit"
+                                disabled={!escalationReason.trim()}
+                                className="flex-1 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-200"
+                            >
+                                تصعيد الآن
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* Edit Category Modal */}
+        {showCategoryModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6">
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <Folder className="text-indigo-600" size={24} /> تعديل تصنيف التذكرة
+                    </h3>
+                    
+                    <form onSubmit={handleCategoryUpdate} className="space-y-4">
+                        {autoStartWork && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl mb-4">
+                                <p className="text-sm text-blue-800 flex items-center gap-2">
+                                    <PlayCircle size={16} className="text-blue-600" />
+                                    <strong>بعد تحديد التصنيف سيتم بدء العمل على التذكرة تلقائياً</strong>
+                                </p>
+                            </div>
+                        )}
+                        
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                التصنيف <span className="text-rose-500">*</span>
+                            </label>
+                            <select 
+                                required
+                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-indigo-500 outline-none"
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                            >
+                                <option value="">اختر التصنيف...</option>
+                                {config.ticketCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-slate-500 mt-2">
+                                ⚠️ يجب تصنيف التذاكر القادمة من البريد الإلكتروني أو البوابة بشكل صحيح
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-slate-100">
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setShowCategoryModal(false);
+                                    setEditingCategoryTicket(null);
+                                    setNewCategory('');
+                                    setAutoStartWork(false);
+                                }} 
+                                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">
+                                إلغاء
+                            </button>
+                            <button 
+                                type="submit"
+                                disabled={!newCategory}
+                                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200"
+                            >
+                                {autoStartWork ? 'حفظ وبدء العمل' : 'حفظ التصنيف'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* Reassign Ticket Modal */}
+        {showReassignModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6">
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <User className="text-purple-600" size={24} /> إعادة إسناد التذكرة
+                    </h3>
+                    
+                    <form onSubmit={handleReassignSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                اختر المستخدم <span className="text-rose-500">*</span>
+                            </label>
+                            <select 
+                                required
+                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-purple-500 outline-none"
+                                value={reassignTargetUserId}
+                                onChange={(e) => setReassignTargetUserId(e.target.value)}
+                            >
+                                <option value="">اختر مستخدم...</option>
+                                {allUsers
+                                    .filter(u => {
+                                        if (!u.isActive || !u.supportLevel) return false;
+                                        
+                                        // Define hierarchy levels
+                                        const hierarchy = {
+                                            'موظف دعم فني': 1,
+                                            'أخصائي تقنية المعلومات': 2,
+                                            'مشرف وحدة تقنية المعلومات': 3
+                                        };
+                                        
+                                        const currentLevel = hierarchy[currentUser?.supportLevel || ''] || 0;
+                                        const targetLevel = hierarchy[u.supportLevel] || 0;
+                                        
+                                        // Can only reassign to same level or lower
+                                        return targetLevel <= currentLevel;
+                                    })
+                                    .map(u => (
+                                        <option key={u.id} value={u.id}>
+                                            {u.name} ({u.supportLevel})
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                تعليمات للمستخدم الجديد <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea 
+                                required
+                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-purple-500 outline-none h-32 resize-none"
+                                placeholder="اكتب تعليمات أو ملاحظات للمستخدم الذي سيستلم التذكرة..."
+                                value={reassignInstructions}
+                                onChange={(e) => setReassignInstructions(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-slate-100">
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setShowReassignModal(false);
+                                    setReassignTargetUserId('');
+                                    setReassignInstructions('');
+                                }} 
+                                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">
+                                إلغاء
+                            </button>
+                            <button 
+                                type="submit"
+                                disabled={!reassignTargetUserId || !reassignInstructions.trim()}
+                                className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-200"
+                            >
+                                إعادة إسناد
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         )}

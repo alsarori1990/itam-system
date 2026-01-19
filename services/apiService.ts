@@ -144,12 +144,58 @@ class ApiService {
     await this.handleResponse(response);
   }
 
+  // Upload asset image
+  async uploadAssetImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE_URL}/assets/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        // Don't set Content-Type - let browser set it with boundary
+      },
+      body: formData,
+    });
+
+    const data = await this.handleResponse(response);
+    return data.imagePath; // Returns the image path
+  }
+
   // Tickets
-  async getTickets(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/tickets`, {
+  async getTickets(page: number = 1, limit: number = 50, filters?: any): Promise<any> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...filters
+    });
+    
+    const response = await fetch(`${API_BASE_URL}/tickets?${params}`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse(response);
+  }
+  
+  // Get all tickets (for compatibility - will fetch in batches)
+  async getAllTickets(): Promise<any[]> {
+    let allTickets: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const result = await this.getTickets(page, 100);
+      const tickets = result.tickets || result;
+      allTickets = [...allTickets, ...tickets];
+      
+      if (result.pagination) {
+        hasMore = result.pagination.hasMore;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+    
+    return allTickets;
   }
 
   async createTicket(ticketData: any): Promise<any> {
@@ -204,6 +250,31 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async updateSimCard(id: string, simData: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/simCards/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(simData),
+    });
+    return this.handleResponse(response);
+  }
+
+  async deleteSimCard(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/simCards/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    await this.handleResponse(response);
+  }
+
+  async deleteSubscription(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    await this.handleResponse(response);
+  }
+
   // Subscriptions
   async getSubscriptions(): Promise<any[]> {
     const response = await fetch(`${API_BASE_URL}/subscriptions`, {
@@ -234,7 +305,67 @@ class ApiService {
     const response = await fetch(`${API_BASE_URL}/audit`, {
       headers: this.getHeaders(),
     });
+    const logs = await this.handleResponse(response);
+    
+    // Transform backend format to frontend format
+    return logs.map((log: any) => ({
+      id: log.id,
+      // Map targetType to specific ID fields
+      assetId: log.targetType === 'Asset' ? log.targetId : log.assetId,
+      ticketId: log.targetType === 'Ticket' ? log.targetId : log.ticketId,
+      subscriptionId: log.targetType === 'Subscription' ? log.targetId : log.subscriptionId,
+      simCardId: log.targetType === 'SimCard' ? log.targetId : log.simCardId,
+      actionType: log.actionType || log.action, // Support both formats
+      details: typeof log.details === 'string' ? log.details : this.formatAuditDetails(log),
+      changes: log.changes || this.extractChanges(log.details?.changes),
+      timestamp: log.timestamp,
+      user: log.user || log.userName || log.userId,
+      reason: log.reason || log.details?.reason,
+    }));
+  }
+
+  async createAuditLog(logData: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/audit`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(logData)
+    });
     return this.handleResponse(response);
+  }
+
+  private formatAuditDetails(log: any): string {
+    const { action, details } = log;
+    
+    // If details is a string, return it directly
+    if (typeof details === 'string') {
+      return details;
+    }
+    
+    // If no details object, return empty string
+    if (!details || typeof details !== 'object') {
+      return '';
+    }
+    
+    if (action === 'CREATE') {
+      return `تم إنشاء ${details.assetName || details.ticketSubject || details.name || 'عنصر'}`;
+    } else if (action === 'UPDATE') {
+      const changeCount = details.changes ? Object.keys(details.changes).length : 0;
+      return `تم تعديل ${changeCount} حقل/حقول`;
+    } else if (action === 'DELETE') {
+      return `تم حذف ${details.assetName || details.name || 'عنصر'}`;
+    }
+    
+    return details.description || '';
+  }
+
+  private extractChanges(changes: any): any[] | undefined {
+    if (!changes) return undefined;
+    
+    return Object.entries(changes).map(([field, change]: [string, any]) => ({
+      fieldName: field,        // Frontend expects 'fieldName'
+      oldValue: change.from,   // Frontend expects 'oldValue'
+      newValue: change.to,     // Frontend expects 'newValue'
+    }));
   }
 }
 

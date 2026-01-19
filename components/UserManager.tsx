@@ -11,13 +11,13 @@ export const UserManager: React.FC = () => {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
   // Permissions Tab State
-  const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<UserRole>(UserRole.TECHNICIAN);
+  const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<UserRole>(UserRole.SUPPORT_STAFF);
 
   // Form State
   const [formData, setFormData] = useState<Partial<AppUser>>({
       name: '',
       email: '',
-      roles: [UserRole.VIEWER],
+      roles: [UserRole.SUPPORT_STAFF],
       branches: []
   });
 
@@ -30,7 +30,7 @@ export const UserManager: React.FC = () => {
           setFormData({
               name: '',
               email: '',
-              roles: [UserRole.VIEWER],
+              roles: [UserRole.SUPPORT_STAFF],
               branches: []
           });
       }
@@ -48,9 +48,15 @@ export const UserManager: React.FC = () => {
   };
 
   const handleDelete = (user: AppUser) => {
-      if (confirm(`هل أنت متأكد من حذف المستخدم ${user.name}؟`)) {
-          manageUser('delete', user);
-      }
+      showConfirm(
+          `هل أنت متأكد من حذف المستخدم ${user.name}؟`,
+          () => {
+              manageUser('delete', user);
+          },
+          undefined,
+          'حذف',
+          'إلغاء'
+      );
   };
 
   // Helper for multi-select (add/remove from array)
@@ -65,9 +71,9 @@ export const UserManager: React.FC = () => {
   const getRoleBadgeColor = (role: UserRole) => {
       switch(role) {
           case UserRole.SUPER_ADMIN: return 'bg-purple-100 text-purple-700 border-purple-200';
-          case UserRole.IT_MANAGER: return 'bg-blue-100 text-blue-700 border-blue-200';
-          case UserRole.TECHNICIAN: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-          case UserRole.AUDITOR: return 'bg-amber-100 text-amber-700 border-amber-200';
+          case UserRole.SUPPORT_STAFF: return 'bg-blue-100 text-blue-700 border-blue-200';
+          case UserRole.IT_SPECIALIST: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+          case UserRole.IT_SUPERVISOR: return 'bg-amber-100 text-amber-700 border-amber-200';
           default: return 'bg-slate-100 text-slate-600 border-slate-200';
       }
   };
@@ -213,6 +219,19 @@ export const UserManager: React.FC = () => {
                                     )}
                                 </div>
                             </div>
+                            {user.supportLevel && (
+                                <div>
+                                    <span className="text-xs text-slate-500 flex items-center gap-1 mb-1"><User size={14}/> مستوى الدعم</span>
+                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                        user.supportLevel === 'موظف دعم فني' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                        user.supportLevel === 'أخصائي تقنية المعلومات' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                        user.supportLevel === 'مشرف وحدة تقنية المعلومات' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                        'bg-slate-50 text-slate-600 border-slate-200'
+                                    }`}>
+                                        {user.supportLevel}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
@@ -297,6 +316,7 @@ export const UserManager: React.FC = () => {
                                 { action: 'view_sensitive', label: 'عرض الأسعار' },
                                 { action: 'create', label: 'إضافة اشتراك' },
                                 { action: 'update', label: 'تجديد/تعديل' },
+                                { action: 'delete', label: 'حذف' }
                             ]}
                         />
                         <ResourceCard 
@@ -401,6 +421,24 @@ export const UserManager: React.FC = () => {
                                 {Object.values(UserRole).filter(r => !formData.roles?.includes(r)).map(role => (
                                     <option key={role} value={role}>{role}</option>
                                 ))}
+                            </select>
+                        </div>
+
+                        {/* Support Level for Ticket Escalation */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">مستوى الدعم (لنظام التذاكر)</label>
+                            <div className="bg-purple-50 p-2 rounded-lg text-xs text-purple-800 mb-2 border border-purple-100">
+                                يستخدم في آلية تصعيد التذاكر: موظف دعم فني → أخصائي تقنية المعلومات → مشرف وحدة تقنية المعلومات
+                            </div>
+                            <select 
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-purple-500 bg-white"
+                                value={formData.supportLevel || ''}
+                                onChange={(e) => setFormData({...formData, supportLevel: e.target.value || undefined})}
+                            >
+                                <option value="">بدون مستوى دعم</option>
+                                <option value="موظف دعم فني">موظف دعم فني</option>
+                                <option value="أخصائي تقنية المعلومات">أخصائي تقنية المعلومات</option>
+                                <option value="مشرف وحدة تقنية المعلومات">مشرف وحدة تقنية المعلومات</option>
                             </select>
                         </div>
 

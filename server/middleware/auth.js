@@ -79,5 +79,27 @@ function checkUserPermission(user, resource, action) {
   return false;
 }
 
+// Role-based access control middleware
+export const requireRole = (allowedRoles) => {
+  return (req, res, next) => {
+    const user = req.user;
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Check if user has any of the allowed roles
+    const hasRole = allowedRoles.some(role => user.role === role || user.roles?.includes(role));
+    
+    if (!hasRole) {
+      return res.status(403).json({ 
+        error: 'Access denied. Required role: ' + allowedRoles.join(' or ')
+      });
+    }
+    
+    next();
+  };
+};
+
 // Export alias for compatibility with route files
 export const authenticateToken = authMiddleware;

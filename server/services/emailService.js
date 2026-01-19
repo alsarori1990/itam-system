@@ -125,6 +125,100 @@ class EmailService {
     return await this.sendToAdmins({ subject, text });
   }
 
+  // إرسال إشعار إسناد تلقائي
+  async sendAssignmentNotification(ticket, assignedUser) {
+    const subject = `📋 تم إسناد تذكرة جديدة إليك: ${ticket.id}`;
+    const text = `
+مرحباً ${assignedUser.name},
+
+تم إسناد تذكرة جديدة إليك تلقائياً:
+
+رقم التذكرة: ${ticket.id}
+المرسل: ${ticket.requesterName || 'غير محدد'}
+الفرع: ${ticket.branch || 'غير محدد'}
+الأولوية: ${ticket.priority}
+الموضوع: ${ticket.subject || 'غير محدد'}
+الوصف: ${ticket.description}
+
+يرجى الدخول إلى النظام لمراجعة التذكرة واتخاذ الإجراء المناسب.
+    `.trim();
+
+    if (assignedUser.email) {
+      return await this.sendMail({ 
+        to: assignedUser.email, 
+        subject, 
+        text 
+      });
+    }
+    return false;
+  }
+
+  // إرسال إشعار تصعيد
+  async sendEscalationNotification(ticket, toUser, fromUser, reason) {
+    const subject = `⬆️ تصعيد تذكرة: ${ticket.id}`;
+    const text = `
+مرحباً ${toUser.name},
+
+تم تصعيد تذكرة إليك من ${fromUser.name}:
+
+رقم التذكرة: ${ticket.id}
+المرسل: ${ticket.requesterName || 'غير محدد'}
+الفرع: ${ticket.branch || 'غير محدد'}
+الأولوية: ${ticket.priority}
+الموضوع: ${ticket.subject || 'غير محدد'}
+
+سبب التصعيد:
+${reason}
+
+الوصف الأصلي:
+${ticket.description}
+
+يرجى الدخول إلى النظام لمراجعة التذكرة واتخاذ الإجراء المناسب.
+    `.trim();
+
+    if (toUser.email) {
+      return await this.sendMail({ 
+        to: toUser.email, 
+        subject, 
+        text 
+      });
+    }
+    return false;
+  }
+
+  // إرسال إشعار إعادة إسناد
+  async sendReassignNotification(ticket, toUser, fromUser, instructions) {
+    const subject = `🔄 تم إعادة إسناد تذكرة: ${ticket.id}`;
+    const text = `
+مرحباً ${toUser.name},
+
+قام ${fromUser.name} بإعادة إسناد تذكرة إليك:
+
+رقم التذكرة: ${ticket.id}
+المرسل: ${ticket.requesterName || 'غير محدد'}
+الفرع: ${ticket.branch || 'غير محدد'}
+الأولوية: ${ticket.priority}
+الموضوع: ${ticket.subject || 'غير محدد'}
+
+تعليمات المشرف:
+${instructions}
+
+الوصف الأصلي:
+${ticket.description}
+
+يرجى الدخول إلى النظام لمراجعة التذكرة واتخاذ الإجراء المناسب.
+    `.trim();
+
+    if (toUser.email) {
+      return await this.sendMail({ 
+        to: toUser.email, 
+        subject, 
+        text 
+      });
+    }
+    return false;
+  }
+
   // قالب HTML أساسي
   generateHtmlTemplate(text, subject) {
     return `

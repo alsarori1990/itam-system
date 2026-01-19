@@ -49,6 +49,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         roles: user.roles,
         branches: user.branches,
+        supportLevel: user.supportLevel,
         isMfaEnabled: user.isMfaEnabled
       }
     });
@@ -146,6 +147,7 @@ router.get('/me', async (req, res) => {
       email: user.email,
       roles: user.roles,
       branches: user.branches || [],
+      supportLevel: user.supportLevel,
       isMfaEnabled: user.isMfaEnabled || false
     });
   } catch (error) {

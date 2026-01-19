@@ -9,42 +9,34 @@ const INITIAL_PERMISSIONS_MATRIX: Record<UserRole, RolePermissions> = {
   [UserRole.SUPER_ADMIN]: {
     assets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
     tickets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, assign: { scope: 'GLOBAL' }, change_status_closed: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
-    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' } },
+    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' } },
     reports: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' } },
     settings: { update: { scope: 'GLOBAL' } },
     audit_log: { view: { scope: 'GLOBAL' } }
   },
-  [UserRole.IT_MANAGER]: {
-    assets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'BRANCH' }, delete: { scope: 'BRANCH' }, export: { scope: 'BRANCH' } },
-    tickets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'BRANCH' }, assign: { scope: 'BRANCH' }, change_status_closed: { scope: 'BRANCH' }, export: { scope: 'BRANCH' } },
-    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' } }, 
-    reports: { view: { scope: 'BRANCH' }, view_sensitive: { scope: 'BRANCH' } },
-    settings: { update: { scope: 'NONE' } }, 
-    audit_log: { view: { scope: 'BRANCH' } }
-  },
-  [UserRole.TECHNICIAN]: {
+  [UserRole.SUPPORT_STAFF]: {
     assets: { view: { scope: 'BRANCH' }, create: { scope: 'NONE' }, update: { scope: 'ASSIGNED' }, delete: { scope: 'NONE' } }, 
-    tickets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'ASSIGNED' }, assign: { scope: 'NONE' }, change_status_closed: { scope: 'NONE' } }, 
+    tickets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'ASSIGNED' }, assign: { scope: 'NONE' }, change_status_closed: { scope: 'ASSIGNED' } }, 
     subscriptions: { view: { scope: 'NONE' } },
     reports: { view: { scope: 'NONE' } },
     settings: { update: { scope: 'NONE' } },
     audit_log: { view: { scope: 'NONE' } }
   },
-  [UserRole.AUDITOR]: {
-    assets: { view: { scope: 'GLOBAL' }, create: { scope: 'NONE' }, update: { scope: 'NONE' }, delete: { scope: 'NONE' }, export: { scope: 'GLOBAL' } },
-    tickets: { view: { scope: 'GLOBAL' }, create: { scope: 'NONE' }, update: { scope: 'NONE' }, export: { scope: 'GLOBAL' } },
-    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
-    reports: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' } },
-    settings: { update: { scope: 'NONE' } },
-    audit_log: { view: { scope: 'GLOBAL' } }
-  },
-  [UserRole.VIEWER]: {
-    assets: { view: { scope: 'GLOBAL' } },
-    tickets: { view: { scope: 'NONE' } },
-    subscriptions: { view: { scope: 'NONE' } },
-    reports: { view: { scope: 'GLOBAL' } },
-    settings: { update: { scope: 'NONE' } },
+  [UserRole.IT_SPECIALIST]: {
+    assets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'BRANCH' }, delete: { scope: 'NONE' }, export: { scope: 'BRANCH' } },
+    tickets: { view: { scope: 'BRANCH' }, create: { scope: 'BRANCH' }, update: { scope: 'BRANCH' }, assign: { scope: 'BRANCH' }, change_status_closed: { scope: 'BRANCH' }, export: { scope: 'BRANCH' } },
+    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'NONE' }, create: { scope: 'NONE' }, update: { scope: 'NONE' } }, 
+    reports: { view: { scope: 'BRANCH' }, view_sensitive: { scope: 'NONE' } },
+    settings: { update: { scope: 'NONE' } }, 
     audit_log: { view: { scope: 'NONE' } }
+  },
+  [UserRole.IT_SUPERVISOR]: {
+    assets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
+    tickets: { view: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, assign: { scope: 'GLOBAL' }, change_status_closed: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' }, export: { scope: 'GLOBAL' } },
+    subscriptions: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' }, create: { scope: 'GLOBAL' }, update: { scope: 'GLOBAL' }, delete: { scope: 'GLOBAL' } }, 
+    reports: { view: { scope: 'GLOBAL' }, view_sensitive: { scope: 'GLOBAL' } },
+    settings: { update: { scope: 'NONE' } }, 
+    audit_log: { view: { scope: 'GLOBAL' } }
   }
 };
 
@@ -87,18 +79,22 @@ interface AppContextType {
   submitPublicTicket: (ticketData: Partial<Ticket>) => Promise<string>;
   addTicketsBulk: (ticketsData: Partial<Ticket>[]) => void;
   updateTicketStatus: (id: string, status: TicketStatus, resolutionData?: { type: 'ROUTINE' | 'SPECIALIZED', details?: string }) => Promise<void>;
+  updateTicketCategory: (id: string, category: string) => Promise<void>;
   adjustTicketTime: (id: string, field: 'receivedAt' | 'startedAt' | 'resolvedAt', newTime: string, reason: string) => void;
   deleteTicket: (id: string) => Promise<void>;
+  loadMoreTickets: () => Promise<void>;
+  hasMoreTickets: boolean;
   
   // Subscription Methods
   addSubscription: (sub: Omit<Subscription, 'id' | 'status'>, initialRenewal?: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => Promise<void>;
   addRenewal: (subId: string, renewal: Omit<RenewalRecord, 'id' | 'subscriptionId' | 'createdAt' | 'createdBy'>) => void;
   updateSubscription: (id: string, updated: Partial<Subscription>) => void;
+  deleteSubscription: (id: string) => Promise<void>;
 
   // SIM Card Methods
   addSimCard: (sim: Omit<SimCard, 'id'>) => Promise<void>;
-  updateSimCard: (id: string, updated: Partial<SimCard>) => void;
-  deleteSimCard: (id: string) => void;
+  updateSimCard: (id: string, updated: Partial<SimCard>) => Promise<void>;
+  deleteSimCard: (id: string) => Promise<void>;
   
   // General Methods
   updateConfig: (category: keyof AppConfig, action: 'add' | 'remove', value: string, code?: string) => void;
@@ -126,6 +122,9 @@ interface AppContextType {
   notifications: SystemNotification[];
   addNotification: (message: string, type?: 'info' | 'success' | 'warning' | 'error', linkTo?: string) => void;
   removeNotification: (id: string) => void;
+  
+  // Confirm Dialog
+  showConfirm: (message: string, onConfirm: () => void, onCancel?: () => void, confirmText?: string, cancelText?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -206,6 +205,8 @@ const INITIAL_SIMS: SimCard[] = []; // Will be loaded from API
 export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsPage, setTicketsPage] = useState(1);
+  const [hasMoreTickets, setHasMoreTickets] = useState(true);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [renewals, setRenewals] = useState<RenewalRecord[]>([]);
   const [subAssignments, setSubAssignments] = useState<SubscriptionAssignment[]>([]);
@@ -222,11 +223,28 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   });
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Auth & Permissions State - Start empty, load from API
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null); 
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Default: Not Authenticated
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    // Read auth state from localStorage immediately
+    return !!localStorage.getItem('authToken');
+  });
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, RolePermissions>>(INITIAL_PERMISSIONS_MATRIX);
 
   // MFA State
@@ -246,17 +264,33 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     setNotifications(prev => [...prev, { id, message, type, timestamp: new Date().toISOString(), linkTo }]);
     setTimeout(() => { setNotifications(prev => prev.filter(n => n.id !== id)); }, 6000);
   };
+  
+  const showConfirm = (
+    message: string,
+    onConfirm: () => void,
+    onCancel?: () => void,
+    confirmText: string = 'تأكيد',
+    cancelText: string = 'إلغاء'
+  ) => {
+    setConfirmDialog({
+      isOpen: true,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+      onCancel: () => {
+        onCancel?.();
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+      confirmText,
+      cancelText,
+    });
+  };
 
   // Play notification sound for new portal tickets
   const playNotificationSound = () => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Try to vibrate on mobile (works on Android Chrome, not iOS Safari)
-      if ('vibrate' in navigator) {
-        navigator.vibrate([300, 100, 300, 100, 300, 100, 500]);
-      }
-      
       // Request notification permission if not granted
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
@@ -269,7 +303,6 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           icon: '/icon-192.png',
           tag: 'new-ticket',
           requireInteraction: true,
-          vibrate: [300, 100, 300, 100, 300],
         });
         
         notification.onclick = () => {
@@ -278,43 +311,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         };
       }
       
-      // Create 3 beeps pattern over 3 seconds
-      const beepTimes = [0, 0.8, 1.6]; // Three beeps at different times
-      
-      beepTimes.forEach((startTime) => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        // Higher frequency for more attention-grabbing sound
-        oscillator.frequency.value = 1200; // Hz (higher pitch)
-        oscillator.type = 'square'; // Square wave for more harsh/alert sound
-        
-        // Maximum volume
-        gainNode.gain.setValueAtTime(1.0, audioContext.currentTime + startTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + startTime + 0.4);
-        
-        oscillator.start(audioContext.currentTime + startTime);
-        oscillator.stop(audioContext.currentTime + startTime + 0.4);
-      });
-      
-      // Add a longer final beep
-      const finalOscillator = audioContext.createOscillator();
-      const finalGain = audioContext.createGain();
-      
-      finalOscillator.connect(finalGain);
-      finalGain.connect(audioContext.destination);
-      
-      finalOscillator.frequency.value = 1000;
-      finalOscillator.type = 'square';
-      
-      finalGain.gain.setValueAtTime(1.0, audioContext.currentTime + 2.4);
-      finalGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3.0);
-      
-      finalOscillator.start(audioContext.currentTime + 2.4);
-      finalOscillator.stop(audioContext.currentTime + 3.0);
+      // Audio removed - requires user gesture to start (browser policy)
       
     } catch (error) {
       console.error('Failed to play notification sound:', error);
@@ -334,6 +331,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
               email: response.user.email,
               roles: response.user.roles as UserRole[],
               branches: response.user.branches || [],
+              supportLevel: response.user.supportLevel,
               isActive: true,
               lastLogin: new Date().toISOString(),
               isMfaEnabled: response.user.isMfaEnabled,
@@ -385,11 +383,62 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   const loadTickets = async () => {
       try {
-          const newTickets = await apiService.getTickets();
-          setTickets(Array.isArray(newTickets) ? newTickets : []);
+          // Load only first 100 tickets for better performance
+          const result = await apiService.getTickets(1, 100);
+          const ticketsArray = Array.isArray(result) ? result : (result.tickets || []);
+          
+          console.log(`✅ Loaded ${ticketsArray.length} tickets (pagination enabled)`);
+          
+          // Check if there are more tickets
+          if (result.pagination) {
+              setHasMoreTickets(result.pagination.hasMore);
+              setTicketsPage(1);
+          }
+          
+          // Merge with localStorage resolvedBy data
+          const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+          const enhancedTickets = ticketsArray.map(ticket => ({
+              ...ticket,
+              resolvedBy: ticketResolutions[ticket.id] || ticket.resolvedBy
+          }));
+          
+          setTickets(enhancedTickets);
       } catch (error) {
           console.error('Failed to load tickets:', error);
           setTickets([]);
+      }
+  };
+  
+  const loadMoreTickets = async () => {
+      if (!hasMoreTickets) {
+          console.log('ℹ️  No more tickets to load');
+          return;
+      }
+      
+      try {
+          const nextPage = ticketsPage + 1;
+          const result = await apiService.getTickets(nextPage, 100);
+          const newTickets = Array.isArray(result) ? result : (result.tickets || []);
+          
+          console.log(`✅ Loaded ${newTickets.length} more tickets (page ${nextPage})`);
+          
+          // Update pagination state
+          if (result.pagination) {
+              setHasMoreTickets(result.pagination.hasMore);
+              setTicketsPage(nextPage);
+          }
+          
+          // Merge with localStorage resolvedBy data
+          const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+          const enhancedNewTickets = newTickets.map(ticket => ({
+              ...ticket,
+              resolvedBy: ticketResolutions[ticket.id] || ticket.resolvedBy
+          }));
+          
+          // Append to existing tickets
+          setTickets(prev => [...prev, ...enhancedNewTickets]);
+      } catch (error) {
+          console.error('Failed to load more tickets:', error);
       }
   };
 
@@ -423,6 +472,26 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       }
   };
 
+  // Load role permissions from database
+  const loadRolePermissions = async () => {
+      try {
+          const response = await fetch('/api/config/permissions', {
+              headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              }
+          });
+          if (response.ok) {
+              const savedPermissions = await response.json();
+              if (savedPermissions) {
+                  setRolePermissions(savedPermissions);
+              }
+          }
+      } catch (error) {
+          console.error('Failed to load role permissions:', error);
+          // Keep using default permissions
+      }
+  };
+
   // Load all data function
   const loadAllData = async () => {
       await Promise.all([
@@ -431,7 +500,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           loadTickets(),
           loadSimCards(),
           loadSubscriptions(),
-          loadAuditLogs()
+          loadAuditLogs(),
+          loadRolePermissions()
       ]);
   };
 
@@ -480,18 +550,17 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   // Auto-login on page refresh if valid token exists
   useEffect(() => {
       const token = localStorage.getItem('authToken');
-      if (token && !isAuthenticated && !currentUser) {
-          console.log('Auto-login: Token found, verifying...');
-          // Verify token and get user data
+      if (token && !currentUser) {
+          // Verify token and get user data in background
           apiService.getCurrentUser()
               .then(userData => {
-                  console.log('Auto-login: User verified', userData.name);
                   const user: AppUser = {
                       id: userData.id,
                       name: userData.name,
                       email: userData.email,
                       roles: userData.roles as UserRole[],
                       branches: userData.branches || [],
+                      supportLevel: userData.supportLevel,
                       isActive: true,
                       lastLogin: new Date().toISOString(),
                       isMfaEnabled: userData.isMfaEnabled,
@@ -516,31 +585,85 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       }
   }, [isAuthenticated, currentUser]);
 
-  // Poll for new portal tickets every 30 seconds
+  // Poll for new tickets every 30 seconds (includes Email, Portal, Phone, etc.)
   useEffect(() => {
       if (!isAuthenticated || !currentUser) return;
 
-      const checkForNewPortalTickets = async () => {
+      // Track if this is the initial load
+      let isInitialLoad = true;
+
+      const checkForNewTickets = async () => {
           try {
-              const latestTickets = await apiService.getTickets();
+              // Only fetch latest 20 tickets to check for new ones
+              const result = await apiService.getTickets(1, 20);
+              const latestTickets = Array.isArray(result) ? result : (result.tickets || []);
               if (!Array.isArray(latestTickets)) return;
 
               const currentIds = new Set(tickets.map(t => t.id));
-              const newPortalTickets = latestTickets.filter((t: Ticket) => 
-                  !currentIds.has(t.id) && t.channel === TicketChannel.PORTAL
-              );
+              const newTickets = latestTickets.filter((t: Ticket) => !currentIds.has(t.id));
 
-              if (newPortalTickets.length > 0) {
-                  playNotificationSound();
-                  setTickets(latestTickets);
-                  addNotification(`تذكرة جديدة من البوابة العامة! (${newPortalTickets.length})`, 'info');
+              // Skip notification on initial load or if tickets state is empty (page refresh)
+              const shouldNotify = !isInitialLoad && tickets.length > 0 && newTickets.length > 0;
+
+              if (newTickets.length > 0) {
+                  // Only play sound if not initial load
+                  if (shouldNotify) {
+                      playNotificationSound();
+                  }
+                  
+                  // Merge with localStorage resolvedBy data
+                  const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+                  const enhancedTickets = latestTickets.map((ticket: any) => ({
+                      ...ticket,
+                      resolvedBy: ticketResolutions[ticket.id] || ticket.resolvedBy
+                  }));
+                  
+                  setTickets(enhancedTickets);
+                  
+                  // Show notification only if not initial load
+                  if (shouldNotify) {
+                      // Count only tickets with NEW status for notification
+                      const actualNewTickets = newTickets.filter(t => t.status === TicketStatus.NEW);
+                      const newTicketsCount = actualNewTickets.length;
+                      
+                      if (newTicketsCount > 0) {
+                          // Show detailed notification
+                          const channelIcons: Record<string, string> = {
+                              'Email': '📧',
+                              'Portal': '🌐',
+                              'Phone': '📞',
+                              'Walk-in': '🚶'
+                          };
+                          const channelCounts = actualNewTickets.reduce((acc, t) => {
+                              const icon = channelIcons[t.channel] || '📋';
+                              acc[t.channel] = (acc[t.channel] || 0) + 1;
+                              return acc;
+                          }, {} as Record<string, number>);
+                          const channelText = Object.entries(channelCounts)
+                              .map(([ch, count]) => `${channelIcons[ch] || '📋'} ${count} ${ch}`)
+                              .join(' • ');
+                          
+                          const ticketWord = newTicketsCount === 1 ? 'تذكرة' : newTicketsCount === 2 ? 'تذكرتان' : 'تذاكر';
+                          addNotification(
+                              `🔔 ${newTicketsCount} ${ticketWord} جديدة وصلت!\n${channelText}`,
+                              'info',
+                              '/tickets'
+                          );
+                      }
+                  }
               }
+              
+              // Mark initial load as complete
+              isInitialLoad = false;
           } catch (error) {
               console.error('Failed to check for new tickets:', error);
+              isInitialLoad = false; // Ensure flag is reset on error too
           }
       };
 
-      const interval = setInterval(checkForNewPortalTickets, 30000); // Check every 30 seconds
+      // Check immediately on mount, then every 30 seconds
+      checkForNewTickets();
+      const interval = setInterval(checkForNewTickets, 30000);
       return () => clearInterval(interval);
   }, [isAuthenticated, currentUser, tickets]);
 
@@ -559,7 +682,8 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           if (rule.scope === 'BRANCH') {
               if (!dataContext) return true; 
               const userBranches = currentUser.branches || [];
-              if (userBranches.length === 0) continue; 
+              // If user has no branches (empty array), treat as GLOBAL access
+              if (userBranches.length === 0) return true; 
               if (resource === 'assets') {
                   const asset = dataContext as Asset;
                   if (userBranches.includes(asset.location)) return true;
@@ -579,24 +703,52 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
               }
               if (resource === 'tickets') {
                   const ticket = dataContext as Ticket;
+                  // Check if ticket is assigned to current user (exact match or contains user's name)
                   if (ticket.assignedTo === currentUser.name) return true;
-                  if (role === UserRole.TECHNICIAN && ticket.assignedTo === 'فني دعم') return true;
+                  if (ticket.assignedTo && ticket.assignedTo.includes(currentUser.name)) return true;
+                  // Support staff can work on generic assigned tickets
+                  if (role === UserRole.SUPPORT_STAFF && ticket.assignedTo === 'فني دعم') return true;
+                  // Check if user is in the same branch as the ticket
+                  const userBranches = currentUser.branches || [];
+                  if (userBranches.length === 0 || userBranches.includes(ticket.branch)) return true;
               }
           }
       }
       return false; 
   };
 
-  const updatePermission = (role: UserRole, resource: Resource, action: PermissionAction, scope: PermissionScope) => {
+  const updatePermission = async (role: UserRole, resource: Resource, action: PermissionAction, scope: PermissionScope) => {
       if (!hasPermission('settings', 'update')) return;
-      setRolePermissions(prev => {
-          const newMatrix = { ...prev };
-          if (!newMatrix[role]) newMatrix[role] = {} as any;
-          if (!newMatrix[role][resource]) newMatrix[role][resource] = {};
-          // @ts-ignore
-          newMatrix[role][resource][action] = { scope };
-          return newMatrix;
-      });
+      
+      const newMatrix = { ...rolePermissions };
+      if (!newMatrix[role]) newMatrix[role] = {} as any;
+      if (!newMatrix[role][resource]) newMatrix[role][resource] = {};
+      // @ts-ignore
+      newMatrix[role][resource][action] = { scope };
+      
+      setRolePermissions(newMatrix);
+      
+      // Save to database
+      try {
+          const response = await fetch('/api/config/permissions', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              },
+              body: JSON.stringify({ permissions: newMatrix })
+          });
+          
+          if (!response.ok) {
+              throw new Error('Failed to save permissions');
+          }
+          
+          addNotification('تم حفظ الصلاحيات بنجاح', 'success');
+      } catch (error) {
+          console.error('Failed to save permissions:', error);
+          addNotification('فشل في حفظ الصلاحيات', 'error');
+      }
+      
       logAction('UPDATE', `تحديث صلاحية ${role}: ${resource}.${action} -> ${scope}`);
   };
 
@@ -658,10 +810,20 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
 
   const logSystemEvent = (actionType: AuditActionType, details: string, assetId?: string, ticketId?: string, changes?: FieldChange[], reason?: string, subscriptionId?: string, simCardId?: string) => {
     const newLog: AuditLogEntry = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `AUD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       assetId, ticketId, subscriptionId, simCardId, actionType, details, changes, timestamp: new Date().toISOString(), user: isAuthenticated ? currentUser.name : 'زائر (بوابة عامة)', reason
     };
     setAuditLog(prev => [newLog, ...prev]);
+    
+    // Save to backend asynchronously
+    if (isAuthenticated) {
+      console.log('Saving audit log to backend:', newLog);
+      apiService.createAuditLog(newLog).then(savedLog => {
+        console.log('Audit log saved successfully:', savedLog);
+      }).catch(err => {
+        console.error('Failed to save audit log to backend:', err);
+      });
+    }
   };
 
   const generateMfaSecret = () => {
@@ -875,14 +1037,54 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         if (resolutionData) { updates.resolutionType = resolutionData.type; updates.resolutionDetails = resolutionData.details; }
         const now = new Date().toISOString();
         if (status === TicketStatus.IN_PROGRESS && !oldTicket.startedAt) updates.startedAt = now;
-        if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) updates.resolvedAt = now;
+        if (status === TicketStatus.RESOLVED && !oldTicket.resolvedAt) {
+            updates.resolvedAt = now;
+            updates.resolvedBy = currentUser?.name || 'غير محدد'; // Save who resolved the ticket
+            
+            // If ticket is not assigned to anyone, assign it to current user who is resolving it
+            if (!oldTicket.assignedTo || oldTicket.assignedTo === 'غير معين') {
+                updates.assignedTo = currentUser?.name || 'غير محدد';
+            }
+            
+            // Save resolvedBy to localStorage for reports (since backend doesn't support it yet)
+            const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+            ticketResolutions[id] = currentUser?.name || 'غير محدد';
+            localStorage.setItem('ticketResolutions', JSON.stringify(ticketResolutions));
+        }
         if (status === TicketStatus.CLOSED && !oldTicket.closedAt) updates.closedAt = now;
-        if (status === TicketStatus.REOPENED) { updates.resolvedAt = undefined; updates.closedAt = undefined; }
+        if (status === TicketStatus.REOPENED) { 
+            updates.resolvedAt = undefined; 
+            updates.closedAt = undefined; 
+            updates.resolvedBy = undefined; // Clear resolved by when reopening
+            
+            // Remove from localStorage when reopening
+            const ticketResolutions = JSON.parse(localStorage.getItem('ticketResolutions') || '{}');
+            delete ticketResolutions[id];
+            localStorage.setItem('ticketResolutions', JSON.stringify(ticketResolutions));
+        }
         
-        const updatedTicket = await apiService.updateTicket(id, updates);
-        setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
+        // For now, don't send resolvedBy to backend (it doesn't support it)
+        const backendUpdates = { ...updates };
+        delete backendUpdates.resolvedBy;
+        
+        const updatedTicket = await apiService.updateTicket(id, backendUpdates);
+        
+        // Manually add resolvedBy to the local state
+        const finalTicket = { ...updatedTicket, resolvedBy: updates.resolvedBy };
+        setTickets(prev => prev.map(t => t.id === id ? finalTicket : t));
+        
         logSystemEvent('TICKET_STATUS_CHANGE', `تغيير حالة التذكرة إلى ${status}`, undefined, id);
-        if (status === TicketStatus.RESOLVED) addNotification(`تم حل التذكرة ${id}`, 'success');
+        
+        // Show user-friendly notifications
+        const statusMessages: Record<TicketStatus, { icon: string, text: string, type: 'success' | 'info' }> = {
+            [TicketStatus.NEW]: { icon: '🆕', text: `تم إعادة التذكرة ${id} إلى جديدة`, type: 'info' },
+            [TicketStatus.IN_PROGRESS]: { icon: '⚙️', text: `بدء العمل على التذكرة ${id}`, type: 'info' },
+            [TicketStatus.RESOLVED]: { icon: '✅', text: `تم حل التذكرة ${id} بنجاح`, type: 'success' },
+            [TicketStatus.CLOSED]: { icon: '🔒', text: `تم إغلاق التذكرة ${id}`, type: 'success' },
+            [TicketStatus.REOPENED]: { icon: '🔄', text: `تم إعادة فتح التذكرة ${id}`, type: 'info' }
+        };
+        const msg = statusMessages[status];
+        if (msg) addNotification(`${msg.icon} ${msg.text}`, msg.type);
     } catch (error) {
         console.error('Failed to update ticket status:', error);
         addNotification('فشل في تحديث حالة التذكرة', 'error');
@@ -896,6 +1098,23 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     if (field === 'receivedAt') updates.isReceivedAtAdjusted = true;
     setTickets(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     logSystemEvent('TICKET_TIME_ADJUST', `تعديل ${field} يدويًا`, undefined, id, undefined, reason);
+  };
+
+  const updateTicketCategory = async (id: string, category: string) => {
+    const oldTicket = tickets.find(t => t.id === id);
+    if (!oldTicket) return;
+    if (!hasPermission('tickets', 'update', oldTicket)) return;
+    
+    try {
+        const updates = { category };
+        const updatedTicket = await apiService.updateTicket(id, updates);
+        setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
+        logSystemEvent('UPDATE', `تم تحديث تصنيف التذكرة إلى: ${category}`, undefined, id);
+        addNotification(`📂 تم تحديث تصنيف التذكرة ${id} إلى "${category}"`, 'success');
+    } catch (error) {
+        console.error('Failed to update ticket category:', error);
+        addNotification('فشل في تحديث تصنيف التذكرة', 'error');
+    }
   };
 
   const deleteTicket = async (id: string) => {
@@ -966,6 +1185,23 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
     if (changes.length > 0) logSystemEvent('SUB_UPDATE', 'تحديث بيانات الاشتراك', undefined, undefined, changes, undefined, id);
   };
 
+  const deleteSubscription = async (id: string) => {
+      if (!hasPermission('subscriptions', 'delete')) return;
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
+      
+      try {
+          await apiService.deleteSubscription(id);
+          setSubscriptions(prev => prev.filter(s => s.id !== id));
+          await loadAuditLogs(); // Refresh audit logs
+          addNotification('تم حذف الاشتراك', 'warning');
+      } catch (error) {
+          console.error('Failed to delete subscription:', error);
+          addNotification('فشل في حذف الاشتراك', 'error');
+          throw error;
+      }
+  };
+
   const addSimCard = async (simData: Omit<SimCard, 'id'>) => {
       if (!hasPermission('subscriptions', 'create')) return;
       try {
@@ -979,7 +1215,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           
           const newSim = await apiService.createSimCard(newSimData);
           setSimCards(prev => [newSim, ...prev]);
-          logSystemEvent('SIM_CREATE', `إضافة شريحة جديدة: ${newSim.phoneNumber || newSim.serialNumber}`, undefined, undefined, undefined, undefined, undefined, newSim.id);
+          await loadAuditLogs(); // Refresh audit logs
           addNotification('تم إضافة الشريحة بنجاح', 'success');
       } catch (error) {
           console.error('Failed to add SIM card:', error);
@@ -987,7 +1223,7 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
       }
   };
 
-  const updateSimCard = (id: string, updated: Partial<SimCard>) => {
+  const updateSimCard = async (id: string, updated: Partial<SimCard>) => {
       if (!hasPermission('subscriptions', 'update')) return;
       const oldSim = simCards.find(s => s.id === id);
       if (!oldSim) return;
@@ -995,18 +1231,34 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
           const existingSim = simCards.find(s => s.serialNumber === updated.serialNumber);
           if (existingSim) { addNotification('خطأ: الرقم التسلسلي للشريحة مستخدم بالفعل', 'error'); throw new Error('Duplicate Serial Number'); }
       }
-      const changes = calculateDiff(oldSim, updated, ['serialNumber', 'phoneNumber', 'status', 'assignedTo', 'department', 'planName']);
-      setSimCards(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-      if (changes.length > 0) { logSystemEvent('SIM_UPDATE', 'تحديث بيانات الشريحة', undefined, undefined, changes, undefined, undefined, id); addNotification('تم تحديث بيانات الشريحة', 'success'); }
+      
+      try {
+          const updatedSim = await apiService.updateSimCard(id, updated);
+          setSimCards(prev => prev.map(s => s.id === id ? updatedSim : s));
+          await loadAuditLogs(); // Refresh audit logs
+          addNotification('تم تحديث بيانات الشريحة', 'success');
+      } catch (error) {
+          console.error('Failed to update SIM card:', error);
+          addNotification('فشل في تحديث الشريحة', 'error');
+          throw error;
+      }
   };
 
-  const deleteSimCard = (id: string) => {
+  const deleteSimCard = async (id: string) => {
       if (!hasPermission('subscriptions', 'delete')) return; 
       const sim = simCards.find(s => s.id === id);
       if (!sim) return;
-      setSimCards(prev => prev.filter(s => s.id !== id));
-      logSystemEvent('SIM_DELETE', `حذف الشريحة: ${sim.serialNumber}`, undefined, undefined, undefined, undefined, undefined, id);
-      addNotification('تم حذف الشريحة', 'warning');
+      
+      try {
+          await apiService.deleteSimCard(id);
+          setSimCards(prev => prev.filter(s => s.id !== id));
+          await loadAuditLogs(); // Refresh audit logs
+          addNotification('تم حذف الشريحة', 'warning');
+      } catch (error) {
+          console.error('Failed to delete SIM card:', error);
+          addNotification('فشل في حذف الشريحة', 'error');
+          throw error;
+      }
   };
 
   const updateConfig = (category: keyof AppConfig, action: 'add' | 'remove', value: string, code?: string) => {
@@ -1069,16 +1321,42 @@ export const AppProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
         assets, tickets, subscriptions, renewals, subAssignments, simCards, config, auditLog, 
         currentUser, allUsers, rolePermissions, isAuthenticated, switchUser, loginAsUser, login, logout, hasPermission, updatePermission, manageUser,
         addAsset, addAssetsBulk, updateAsset, deleteAsset, 
-        addTicket, submitPublicTicket, addTicketsBulk, updateTicketStatus, adjustTicketTime, deleteTicket,
-        addSubscription, addRenewal, updateSubscription,
+        addTicket, submitPublicTicket, addTicketsBulk, updateTicketStatus, updateTicketCategory, adjustTicketTime, deleteTicket, loadMoreTickets, hasMoreTickets,
+        addSubscription, addRenewal, updateSubscription, deleteSubscription,
         addSimCard, updateSimCard, deleteSimCard,
         updateConfig, updateCode, updateSmtpSettings, logAction, 
         checkInUse, toggleHidden, // New Exports
         getAssetHistory, getTicketHistory, getSubscriptionHistory, getSimHistory, getStats, generateAssetIdPreview, loading,
         isMfaEnabled, generateMfaSecret, enableMfa, disableMfa, verifyMfa,
-        notifications, addNotification, removeNotification
+        notifications, addNotification, removeNotification, showConfirm
     }}>
       {children}
+      
+      {/* Confirm Dialog Modal */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">
+              {confirmDialog.message}
+            </h3>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={confirmDialog.onCancel}
+                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                {confirmDialog.cancelText || 'إلغاء'}
+              </button>
+              <button 
+                onClick={confirmDialog.onConfirm}
+                className="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-lg shadow-rose-200"
+              >
+                {confirmDialog.confirmText || 'تأكيد'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 };

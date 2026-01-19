@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2, Settings as SettingsIcon, MapPin, Tag, Activity, Hash, ShieldCheck, Smartphone, CheckCircle2, Lock, Mail, Server, List, MessageSquare, CreditCard, LayoutList, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
-import { AppConfig, SmtpSettings } from '../types';
+import { Plus, Trash2, Settings as SettingsIcon, MapPin, Tag, Activity, Hash, ShieldCheck, Smartphone, CheckCircle2, Lock, List, MessageSquare, CreditCard, LayoutList, Eye, EyeOff, AlertTriangle, X, Mail } from 'lucide-react';
+import { AppConfig } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
+import { InboundEmailManager } from './InboundEmailManager';
 
 // --- Standalone ConfigSection Component ---
 interface ConfigSectionProps {
@@ -141,10 +142,10 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
 };
 
 export const Settings: React.FC = () => {
-  const { config, updateConfig, updateCode, updateSmtpSettings, isMfaEnabled, generateMfaSecret, enableMfa, disableMfa, checkInUse, toggleHidden } = useApp();
+  const { config, updateConfig, updateCode, isMfaEnabled, generateMfaSecret, enableMfa, disableMfa, checkInUse, toggleHidden } = useApp();
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<'LISTS' | 'SECURITY' | 'EMAIL'>('LISTS');
+  const [activeTab, setActiveTab] = useState<'LISTS' | 'SECURITY' | 'EMAILS'>('LISTS');
 
   // Local state for inputs
   const [newType, setNewType] = useState('');
@@ -161,46 +162,6 @@ export const Settings: React.FC = () => {
   // Delete Modal States
   const [blockedItem, setBlockedItem] = useState<string | null>(null);
   const [confirmDeleteItem, setConfirmDeleteItem] = useState<{category: keyof AppConfig, item: string} | null>(null);
-
-  // SMTP State
-  const [smtpForm, setSmtpForm] = useState<SmtpSettings>({
-      enabled: false,
-      host: '',
-      port: '',
-      user: '',
-      pass: '',
-      fromEmail: '',
-      adminEmails: ''
-  });
-
-  // Load SMTP settings from API on component mount
-  useEffect(() => {
-      const loadSmtpSettings = async () => {
-          try {
-              const response = await fetch('http://72.62.149.231/api/config/smtp', {
-                  headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                  }
-              });
-              
-              if (response.ok) {
-                  const data = await response.json();
-                  setSmtpForm(data);
-                  updateSmtpSettings(data);
-              }
-          } catch (error) {
-              console.error('Failed to load SMTP settings:', error);
-          }
-      };
-      
-      loadSmtpSettings();
-  }, []);
-
-  useEffect(() => {
-      if (config.smtpSettings) {
-          setSmtpForm(config.smtpSettings);
-      }
-  }, [config.smtpSettings]);
 
   // MFA Setup State
   const [mfaSetupData, setMfaSetupData] = useState<{ secret: string; uri: string } | null>(null);
@@ -233,55 +194,6 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const handleSmtpSave = async () => {
-      try {
-          const response = await fetch('http://72.62.149.231/api/config/smtp', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-              },
-              body: JSON.stringify(smtpForm)
-          });
-          
-          if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.error || 'فشل في حفظ الإعدادات');
-          }
-          
-          const data = await response.json();
-          updateSmtpSettings(smtpForm);
-          alert('✅ ' + data.message);
-      } catch (error) {
-          console.error('Failed to save SMTP settings:', error);
-          alert('❌ ' + (error.message || 'فشل في حفظ الإعدادات'));
-      }
-  };
-
-  const handleSmtpTest = async () => {
-      try {
-          const response = await fetch('http://72.62.149.231/api/config/smtp/test', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-              },
-              body: JSON.stringify({})
-          });
-          
-          if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.error || 'فشل الاختبار');
-          }
-          
-          const data = await response.json();
-          alert('✅ ' + data.message);
-      } catch (error) {
-          console.error('SMTP test failed:', error);
-          alert('❌ ' + (error.message || 'فشل في اختبار الاتصال'));
-      }
-  };
-
   const executeDelete = () => {
       if (confirmDeleteItem) {
           updateConfig(confirmDeleteItem.category, 'remove', confirmDeleteItem.item);
@@ -297,7 +209,7 @@ export const Settings: React.FC = () => {
           <SettingsIcon className="text-slate-400" />
           إعدادات النظام
         </h2>
-        <p className="text-slate-500 mt-1">إدارة القوائم المنسدلة، الأمان، وإشعارات البريد</p>
+        <p className="text-slate-500 mt-1">إدارة القوائم المنسدلة والأمان</p>
       </div>
 
       {/* Tabs */}
@@ -319,12 +231,12 @@ export const Settings: React.FC = () => {
               {activeTab === 'SECURITY' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
           </button>
           <button 
-              onClick={() => setActiveTab('EMAIL')}
-              className={`pb-3 px-6 text-sm font-bold transition-colors relative flex items-center gap-2 ${activeTab === 'EMAIL' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => setActiveTab('EMAILS')}
+              className={`pb-3 px-6 text-sm font-bold transition-colors relative flex items-center gap-2 ${activeTab === 'EMAILS' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
           >
               <Mail size={18} />
-              إعدادات البريد
-              {activeTab === 'EMAIL' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
+              إدارة البريد الوارد
+              {activeTab === 'EMAILS' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
           </button>
       </div>
 
@@ -434,74 +346,7 @@ export const Settings: React.FC = () => {
             </div>
         )}
 
-        {/* TAB 2: EMAIL (SMTP) */}
-        {activeTab === 'EMAIL' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-fade-in max-w-4xl mx-auto">
-                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                    <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
-                    <Mail size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-800 text-lg">إعدادات البريد الإلكتروني (SMTP)</h3>
-                        <p className="text-xs text-slate-500">إرسال إشعارات آلية لمقدمي الطلبات والموظفين</p>
-                    </div>
-                    <div className="mr-auto">
-                        <label className="flex items-center cursor-pointer relative">
-                            <input type="checkbox" className="sr-only peer" checked={smtpForm.enabled} onChange={(e) => setSmtpForm({...smtpForm, enabled: e.target.checked})} />
-                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-                            <span className="ms-3 text-sm font-medium text-slate-900">{smtpForm.enabled ? 'مفعل' : 'معطل'}</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">خادم SMTP (Host)</label>
-                        <div className="relative">
-                            <Server className="absolute right-3 top-3 text-slate-400" size={16} />
-                            <input type="text" className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="smtp.gmail.com" 
-                                value={smtpForm.host} onChange={(e) => setSmtpForm({...smtpForm, host: e.target.value})} disabled={!smtpForm.enabled} />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">المنفذ (Port)</label>
-                        <input type="text" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="587" 
-                            value={smtpForm.port} onChange={(e) => setSmtpForm({...smtpForm, port: e.target.value})} disabled={!smtpForm.enabled} />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">اسم المستخدم (User)</label>
-                        <input type="text" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="notifications@company.com" 
-                            value={smtpForm.user} onChange={(e) => setSmtpForm({...smtpForm, user: e.target.value})} disabled={!smtpForm.enabled} />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">كلمة المرور (App Password)</label>
-                        <input type="password" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="********" 
-                            value={smtpForm.pass} onChange={(e) => setSmtpForm({...smtpForm, pass: e.target.value})} disabled={!smtpForm.enabled} />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">بريد المرسل (From Email)</label>
-                        <input type="email" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="support@company.com" 
-                            value={smtpForm.fromEmail} onChange={(e) => setSmtpForm({...smtpForm, fromEmail: e.target.value})} disabled={!smtpForm.enabled} />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">بريد المسؤولين (Admin Notification Emails)</label>
-                        <input type="text" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white" placeholder="admin1@co.com, admin2@co.com" 
-                            value={smtpForm.adminEmails} onChange={(e) => setSmtpForm({...smtpForm, adminEmails: e.target.value})} disabled={!smtpForm.enabled} />
-                        <p className="text-[10px] text-slate-400 mt-1">افصل بين العناوين بفاصلة (,)</p>
-                    </div>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                    <button onClick={handleSmtpTest} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors" disabled={!smtpForm.enabled}>
-                        اختبار الاتصال
-                    </button>
-                    <button onClick={handleSmtpSave} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors" disabled={!smtpForm.enabled}>
-                        حفظ إعدادات البريد
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {/* TAB 3: SECURITY */}
+        {/* TAB 2: SECURITY */}
         {activeTab === 'SECURITY' && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-fade-in max-w-4xl mx-auto">
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
@@ -586,6 +431,13 @@ export const Settings: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
+        )}
+
+        {/* TAB 3: EMAIL MANAGEMENT */}
+        {activeTab === 'EMAILS' && (
+            <div className="animate-fade-in">
+                <InboundEmailManager />
             </div>
         )}
       </div>

@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, CheckCircle2, AlertTriangle, Cpu, DollarSign, Trash, Fingerprint, RefreshCw } from 'lucide-react';
 import { AssetStatus, Asset } from '../types';
 import { useApp } from '../context/AppContext';
+import apiService from '../services/apiService';
 
 interface AssetFormProps {
   onCancel: () => void;
@@ -16,6 +16,8 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onCancel, onSuccess, initi
   
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(initialAsset?.image || null);
+  const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(initialAsset?.image || null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string>('');
 
   const [formData, setFormData] = useState<Partial<Asset>>({
@@ -48,6 +50,10 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onCancel, onSuccess, initi
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Store the file for upload
+    setImageFile(file);
+
+    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setPreviewImage(reader.result as string);
@@ -55,29 +61,40 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onCancel, onSuccess, initi
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate network delay
-    setTimeout(() => {
+    try {
+      let finalImagePath = uploadedImagePath;
+
+      // Upload image if a new file was selected
+      if (imageFile) {
+        finalImagePath = await apiService.uploadAssetImage(imageFile);
+        setUploadedImagePath(finalImagePath);
+      }
+
       const assetData = {
         ...formData,
-        image: previewImage || undefined,
+        image: finalImagePath || undefined,
         lastUpdated: new Date().toISOString()
       };
 
       if (initialAsset) {
         // ID is not updated for existing assets (Immutability rule)
-        updateAsset(initialAsset.id, assetData);
+        await updateAsset(initialAsset.id, assetData);
       } else {
         // ID generated inside Context
-        addAsset(assetData as Asset);
+        await addAsset(assetData as Asset);
       }
       
       setLoading(false);
       onSuccess();
-    }, 800);
+    } catch (error) {
+      console.error('Failed to save asset:', error);
+      setLoading(false);
+      alert('فشل في حفظ الأصل. يرجى المحاولة مرة أخرى.');
+    }
   };
 
   const isDisposalStatus = formData.status === AssetStatus.SOLD || formData.status === AssetStatus.SCRAPPED || formData.status === 'مباع' || formData.status === 'تم الإتلاف';

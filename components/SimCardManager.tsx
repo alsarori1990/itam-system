@@ -25,7 +25,7 @@ const getFieldLabel = (field: string) => {
 };
 
 export const SimCardManager: React.FC<SimCardManagerProps> = ({ initialFilters }) => {
-  const { simCards = [], config, addSimCard, updateSimCard, deleteSimCard, getSimHistory, hasPermission } = useApp();
+  const { simCards = [], config, addSimCard, updateSimCard, deleteSimCard, getSimHistory, hasPermission, showConfirm } = useApp();
   
   const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
   const [selectedSim, setSelectedSim] = useState<SimCard | null>(null);
@@ -93,8 +93,35 @@ export const SimCardManager: React.FC<SimCardManagerProps> = ({ initialFilters }
       }
   };
 
+  const handleICCIDChange = (val: string) => {
+      setSimForm(prev => ({ ...prev, serialNumber: val }));
+      // Check for duplicate ICCID
+      const duplicate = simCards.find(s => s.serialNumber === val && s.id !== selectedSim?.id);
+      if (duplicate) {
+          setSimWarning(`❌ الرقم التسلسلي (ICCID) مكرر!\nمستخدم في الشريحة: ${duplicate.phoneNumber} (${duplicate.carrier})`);
+      } else {
+          setSimWarning(null);
+      }
+  };
+
   const handleSimSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      
+      // Check for duplicate ICCID before saving
+      const duplicateICCID = simCards.find(s => 
+          s.serialNumber === simForm.serialNumber && 
+          s.id !== selectedSim?.id
+      );
+      
+      if (duplicateICCID) {
+          alert(`❌ لا يمكن الحفظ!\n\nالرقم التسلسلي (ICCID) "${simForm.serialNumber}" مستخدم بالفعل في الشريحة:\n\n` +
+                `📱 رقم الشريحة: ${duplicateICCID.phoneNumber}\n` +
+                `📡 المشغل: ${duplicateICCID.carrier}\n` +
+                `📊 الحالة: ${duplicateICCID.status}\n\n` +
+                `الرجاء استخدام رقم ICCID مختلف.`);
+          return;
+      }
+      
       try {
           if (selectedSim) {
               updateSimCard(selectedSim.id, simForm);
@@ -125,142 +152,19 @@ export const SimCardManager: React.FC<SimCardManagerProps> = ({ initialFilters }
   };
 
   const handleDeleteClick = (sim: SimCard) => {
-      if(confirm('هل أنت متأكد من حذف الشريحة؟')) {
-          deleteSimCard(sim.id);
-          if (view === 'detail') setView('list');
-      }
+      showConfirm(
+          'هل أنت متأكد من حذف الشريحة؟',
+          () => {
+              deleteSimCard(sim.id);
+              if (view === 'detail') setView('list');
+          },
+          undefined,
+          'حذف',
+          'إلغاء'
+      );
   };
 
   // --- Views ---
-
-  const CreateSimView = () => (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-2xl mx-auto animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{selectedSim ? 'تعديل بيانات الشريحة' : 'إضافة شريحة جديدة'}</h2>
-              <button onClick={() => { setView('list'); setSelectedSim(null); setSimForm({}); setSimWarning(null); }} className="text-slate-400 hover:text-slate-600">إلغاء</button>
-          </div>
-          <form onSubmit={handleSimSubmit} className="space-y-6">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-500 mb-1">الرقم التسلسلي (ICCID) <span className="text-rose-500">*</span></label>
-                      <div className="relative">
-                          <SimIcon size={16} className="absolute right-3 top-3 text-slate-400" />
-                          <input 
-                              required 
-                              type="text" 
-                              className="w-full pr-10 pl-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 font-mono tracking-wide focus:border-blue-500" 
-                              placeholder="89966..."
-                              value={simForm.serialNumber || ''} 
-                              onChange={e => setSimForm({...simForm, serialNumber: e.target.value})} 
-                              // Lock serial number in edit mode to prevent confusion or require special permission
-                              disabled={!!selectedSim} 
-                          />
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1">يجب أن يكون فريداً وغير مكرر في النظام.</p>
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">رقم الشريحة (Phone Number)</label>
-                      <input 
-                          type="text" 
-                          className={`w-full p-3 rounded-xl border bg-white text-slate-800 ${simWarning ? 'border-amber-300 focus:border-amber-500' : 'border-slate-200'}`}
-                          placeholder="05..."
-                          value={simForm.phoneNumber || ''} 
-                          onChange={e => handleSimNumberChange(e.target.value)} 
-                      />
-                      {simWarning && (
-                          <div className="flex items-center gap-1 mt-1 text-amber-600 text-xs font-bold animate-pulse">
-                              <AlertTriangle size={12} /> {simWarning}
-                          </div>
-                      )}
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">المزود (Provider)</label>
-                      <select 
-                          required
-                          className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                          value={simForm.provider || ''} 
-                          onChange={e => setSimForm({...simForm, provider: e.target.value})}
-                      >
-                          <option value="">اختر المزود</option>
-                          {config.simProviders.filter(p => !config.hiddenOptions?.simProviders?.includes(p)).map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">نوع الشريحة</label>
-                      <select 
-                          required
-                          className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                          value={simForm.type || ''} 
-                          onChange={e => setSimForm({...simForm, type: e.target.value as SimType})}
-                      >
-                          <option value="">اختر النوع</option>
-                          {Object.values(SimType).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">الباقة (Plan Name)</label>
-                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                          value={simForm.planName || ''} onChange={e => setSimForm({...simForm, planName: e.target.value})} placeholder="مثال: باقة أعمال 400" />
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">الموظف المسؤول (اختياري)</label>
-                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                          value={simForm.assignedTo || ''} onChange={e => setSimForm({...simForm, assignedTo: e.target.value})} />
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">القسم</label>
-                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                          value={simForm.department || ''} onChange={e => setSimForm({...simForm, department: e.target.value})} placeholder="مثال: المبيعات" />
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">الفرع / الموقع</label>
-                      <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
-                          value={simForm.branch || ''} onChange={e => setSimForm({...simForm, branch: e.target.value})}>
-                          <option value="">اختر الفرع</option>
-                          {config.locations.filter(l => !config.hiddenOptions?.locations?.includes(l)).map(l => (
-                            <option key={l} value={l} className="text-black">{l}</option>
-                          ))}
-                      </select>
-                  </div>
-
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">الحالة</label>
-                      <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
-                          value={simForm.status || SimStatus.ACTIVE} onChange={e => setSimForm({...simForm, status: e.target.value as SimStatus})}>
-                          {Object.values(SimStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                  </div>
-
-                  {canSeeCosts && (
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة الشهرية</label>
-                          <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                              value={simForm.cost || ''} onChange={e => setSimForm({...simForm, cost: parseFloat(e.target.value)})} />
-                      </div>
-                  )}
-              </div>
-
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">ملاحظات</label>
-                  <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" rows={3}
-                      value={simForm.notes || ''} onChange={e => setSimForm({...simForm, notes: e.target.value})} />
-              </div>
-
-              <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2">
-                  <Save size={18} />
-                  {selectedSim ? 'تحديث الشريحة' : 'حفظ الشريحة'}
-              </button>
-          </form>
-      </div>
-  );
 
   const DetailView = () => {
       if (!selectedSim) return null;
@@ -577,9 +481,139 @@ export const SimCardManager: React.FC<SimCardManagerProps> = ({ initialFilters }
 
   return (
     <div className="space-y-6">
-       {view === 'create' ? <CreateSimView /> : 
-        view === 'detail' ? <DetailView /> :
-        <ListView />}
+       {view === 'create' && (
+         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-2xl mx-auto animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-800">{selectedSim ? 'تعديل بيانات الشريحة' : 'إضافة شريحة جديدة'}</h2>
+              <button onClick={() => { setView('list'); setSelectedSim(null); setSimForm({}); setSimWarning(null); }} className="text-slate-400 hover:text-slate-600">إلغاء</button>
+          </div>
+          <form onSubmit={handleSimSubmit} className="space-y-6">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الرقم التسلسلي (ICCID) <span className="text-rose-500">*</span></label>
+                      <div className="relative">
+                          <SimIcon size={16} className="absolute right-3 top-3 text-slate-400" />
+                          <input 
+                              required 
+                              type="text" 
+                              className={`w-full pr-10 pl-3 py-3 rounded-xl border ${
+                                  simWarning && simWarning.includes('ICCID') 
+                                      ? 'border-rose-500 bg-rose-50' 
+                                      : 'border-slate-200 bg-white'
+                              } text-slate-800 font-mono tracking-wide focus:border-blue-500`}
+                              placeholder="89966..."
+                              value={simForm.serialNumber || ''} 
+                              onChange={e => handleICCIDChange(e.target.value)} 
+                              disabled={!!selectedSim} 
+                          />
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">يجب أن يكون فريداً وغير مكرر في النظام.</p>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">رقم الشريحة (Phone Number)</label>
+                      <input 
+                          type="text" 
+                          className={`w-full p-3 rounded-xl border bg-white text-slate-800 ${simWarning ? 'border-amber-300 focus:border-amber-500' : 'border-slate-200'}`}
+                          placeholder="05..."
+                          value={simForm.phoneNumber || ''} 
+                          onChange={e => handleSimNumberChange(e.target.value)} 
+                      />
+                      {simWarning && (
+                          <div className="flex items-center gap-1 mt-1 text-amber-600 text-xs font-bold animate-pulse">
+                              <AlertTriangle size={12} /> {simWarning}
+                          </div>
+                      )}
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">المزود (Provider)</label>
+                      <select 
+                          required
+                          className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                          value={simForm.provider || ''} 
+                          onChange={e => setSimForm(prev => ({...prev, provider: e.target.value}))}
+                      >
+                          <option value="">اختر المزود</option>
+                          {config.simProviders.filter(p => !config.hiddenOptions?.simProviders?.includes(p)).map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">نوع الشريحة</label>
+                      <select 
+                          required
+                          className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                          value={simForm.type || ''} 
+                          onChange={e => setSimForm(prev => ({...prev, type: e.target.value as SimType}))}
+                      >
+                          <option value="">اختر النوع</option>
+                          {Object.values(SimType).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الباقة (Plan Name)</label>
+                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                          value={simForm.planName || ''} onChange={e => setSimForm(prev => ({...prev, planName: e.target.value}))} placeholder="مثال: باقة أعمال 400" />
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الموظف المسؤول (اختياري)</label>
+                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                          value={simForm.assignedTo || ''} onChange={e => setSimForm(prev => ({...prev, assignedTo: e.target.value}))} />
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">القسم</label>
+                      <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                          value={simForm.department || ''} onChange={e => setSimForm(prev => ({...prev, department: e.target.value}))} placeholder="مثال: المبيعات" />
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الفرع / الموقع</label>
+                      <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
+                          value={simForm.branch || ''} onChange={e => setSimForm(prev => ({...prev, branch: e.target.value}))}>
+                          <option value="">اختر الفرع</option>
+                          {config.locations.filter(l => !config.hiddenOptions?.locations?.includes(l)).map(l => (
+                            <option key={l} value={l} className="text-black">{l}</option>
+                          ))}
+                      </select>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الحالة</label>
+                      <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
+                          value={simForm.status || SimStatus.ACTIVE} onChange={e => setSimForm(prev => ({...prev, status: e.target.value as SimStatus}))}>
+                          {Object.values(SimStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                  </div>
+
+                  {canSeeCosts && (
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة الشهرية</label>
+                          <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                              value={simForm.cost || ''} onChange={e => setSimForm(prev => ({...prev, cost: parseFloat(e.target.value)}))} />
+                      </div>
+                  )}
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">ملاحظات</label>
+                  <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" rows={3}
+                      value={simForm.notes || ''} onChange={e => setSimForm(prev => ({...prev, notes: e.target.value}))} />
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2">
+                  <Save size={18} />
+                  {selectedSim ? 'تحديث الشريحة' : 'حفظ الشريحة'}
+              </button>
+          </form>
+      </div>
+       )}
+       {view === 'detail' && <DetailView />}
+       {view === 'list' && <ListView />}
     </div>
   );
 };

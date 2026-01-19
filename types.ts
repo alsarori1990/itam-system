@@ -43,6 +43,7 @@ export enum TicketStatus {
   NEW = 'جديد',
   ASSIGNED = 'تم التعيين',
   IN_PROGRESS = 'جاري العمل',
+  ESCALATED = 'مصعّد', // NEW
   WAITING = 'في الانتظار',
   RESOLVED = 'تم الحل',
   CLOSED = 'مغلقة',
@@ -64,6 +65,18 @@ export enum TicketChannel {
   PORTAL = 'Portal'
 }
 
+// Escalation/Assignment History Entry
+export interface EscalationRecord {
+  id: string;
+  timestamp: string;
+  fromUser: string; // Username who escalated/assigned
+  toUser: string; // Username receiving the ticket
+  action: 'AUTO_ASSIGN' | 'ESCALATE' | 'REASSIGN'; // Type of action
+  reason?: string; // Required for escalations, optional for assignments
+  fromLevel?: SupportLevel; // Support level of fromUser
+  toLevel?: SupportLevel; // Support level of toUser
+}
+
 export interface Ticket {
   id: string; // TKT-24-0001
   requesterName: string;
@@ -77,7 +90,8 @@ export interface Ticket {
   attachmentImage?: string; // New: Optional Image Attachment (Base64)
   linkedAssetId?: string; // Optional link to an asset
   status: TicketStatus;
-  assignedTo?: string; // Technician
+  assignedTo?: string; // Current assigned user
+  escalationHistory?: EscalationRecord[]; // NEW: Track all assignments/escalations
   
   // Resolution Details
   resolutionType?: 'ROUTINE' | 'SPECIALIZED';
@@ -196,7 +210,7 @@ export interface SimCard {
 export type AuditActionType = 
   | 'CREATE' | 'UPDATE' | 'DELETE' 
   | 'STATUS_CHANGE' | 'LOCATION_CHANGE' | 'ASSIGNMENT_CHANGE'
-  | 'TICKET_CREATE' | 'TICKET_UPDATE' | 'TICKET_STATUS_CHANGE' | 'TICKET_TIME_ADJUST'
+  | 'TICKET_CREATE' | 'TICKET_UPDATE' | 'TICKET_STATUS_CHANGE' | 'TICKET_TIME_ADJUST' | 'TICKET_ESCALATE' | 'TICKET_REASSIGN'
   | 'SUB_CREATE' | 'SUB_RENEW' | 'SUB_UPDATE'
   | 'SIM_CREATE' | 'SIM_UPDATE' | 'SIM_DELETE';
 
@@ -276,11 +290,17 @@ export interface DashboardStats {
 // --- AUTHORIZATION & USER TYPES ---
 
 export enum UserRole {
-  SUPER_ADMIN = 'Super Admin',
-  IT_MANAGER = 'IT Manager',
-  TECHNICIAN = 'IT Technician',
-  AUDITOR = 'Auditor / Finance',
-  VIEWER = 'Viewer'
+  SUPER_ADMIN = 'مدير النظام',
+  SUPPORT_STAFF = 'موظف دعم فني',
+  IT_SPECIALIST = 'أخصائي تقنية المعلومات',
+  IT_SUPERVISOR = 'مشرف وحدة تقنية المعلومات'
+}
+
+// Support Level Hierarchy for Escalation (same as roles but for ticket escalation)
+export enum SupportLevel {
+  SUPPORT_STAFF = 'موظف دعم فني',
+  IT_SPECIALIST = 'أخصائي تقنية المعلومات',
+  IT_SUPERVISOR = 'مشرف وحدة تقنية المعلومات'
 }
 
 export interface AppUser {
@@ -289,6 +309,7 @@ export interface AppUser {
   email: string;
   password?: string; // For creation only, not stored in frontend
   roles: UserRole[]; 
+  supportLevel?: SupportLevel; // NEW: For escalation hierarchy
   branches?: string[];
   department?: string;
   isActive?: boolean;

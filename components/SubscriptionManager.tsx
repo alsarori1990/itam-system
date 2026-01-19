@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Subscription, RenewalRecord, BillingCycle, SubscriptionType } from '../types';
 import { CreditCard, Plus, Filter, AlertTriangle, CheckCircle2, XCircle, Calendar, DollarSign, History, User, Clock, ArrowRight, Save, RotateCcw, Lock, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
@@ -10,7 +10,10 @@ interface SubscriptionManagerProps {
 }
 
 export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initialFilters }) => {
-  const { subscriptions = [], renewals = [], config, addSubscription, addRenewal, getSubscriptionHistory, hasPermission } = useApp();
+  const { subscriptions = [], renewals = [], config, addSubscription, addRenewal, getSubscriptionHistory, hasPermission, deleteSubscription, showConfirm } = useApp();
+  
+  // Check delete permission once
+  const canDelete = hasPermission('subscriptions', 'delete');
   
   const [view, setView] = useState<'list' | 'detail' | 'create' | 'renew'>('list');
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
@@ -29,6 +32,11 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initia
   // Forms State
   const [newSub, setNewSub] = useState<Partial<Subscription>>({});
   const [newRenewal, setNewRenewal] = useState<Partial<RenewalRecord>>({});
+
+  // Memoize filtered categories to prevent re-renders
+  const visibleCategories = useMemo(() => {
+    return config.subscriptionCategories.filter(c => !config.hiddenOptions?.subscriptionCategories?.includes(c));
+  }, [config.subscriptionCategories, config.hiddenOptions?.subscriptionCategories]);
 
   // Apply Initial Filters
   useEffect(() => {
@@ -107,6 +115,26 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initia
     }
   };
 
+  const handleDelete = async (sub: Subscription) => {
+    const confirmed = await showConfirm(`هل أنت متأكد من حذف الاشتراك "${sub.name}"؟`);
+    if (!confirmed) return;
+    
+    try {
+      await deleteSubscription(sub.id);
+      if (selectedSub?.id === sub.id) {
+        setView('list');
+        setSelectedSub(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete subscription:', error);
+    }
+  };
+
+  // Debug: Check permission - TEMPORARY
+  const hasDeletePerm = hasPermission('subscriptions', 'delete');
+  console.log('[SubscriptionManager] Has delete permission:', hasDeletePerm);
+  console.log('[SubscriptionManager] Current user:', { subscriptions, hasPermission: typeof hasPermission });
+
   const openRenewWizard = () => {
     if (!selectedSub) return;
     const lastDate = selectedSub.nextRenewalDate ? new Date(selectedSub.nextRenewalDate) : new Date();
@@ -134,170 +162,6 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initia
   };
 
   // --- Views ---
-
-  const CreateView = () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-2xl mx-auto animate-fade-in">
-       <div className="flex items-center justify-between mb-6">
-           <h2 className="text-xl font-bold text-slate-800">إضافة اشتراك / ترخيص جديد</h2>
-           <button onClick={() => setView('list')} className="text-slate-400 hover:text-slate-600">إلغاء</button>
-       </div>
-       <form onSubmit={handleCreateSub} className="space-y-6">
-          {/* ... inputs ... */}
-          {/* Similar to previous, but wrapping cost input with permission check */}
-          <div className="grid grid-cols-2 gap-4">
-             <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">اسم الاشتراك</label>
-                <input required type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                   value={newSub.name || ''} onChange={e => setNewSub({...newSub, name: e.target.value})} placeholder="مثال: Adobe CC" />
-             </div>
-             <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">المزود (Vendor)</label>
-                <input required type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
-                   value={newSub.vendor || ''} onChange={e => setNewSub({...newSub, vendor: e.target.value})} />
-             </div>
-             {/* ... */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">النوع</label>
-                <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
-                   value={newSub.type || ''} onChange={e => setNewSub({...newSub, type: e.target.value as SubscriptionType})}>
-                   <option value="">اختر النوع</option>
-                   {Object.values(SubscriptionType).map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-             </div>
-             
-             <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">التصنيف (Category)</label>
-                <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
-                   value={newSub.category || ''} onChange={e => setNewSub({...newSub, category: e.target.value})}>
-                   <option value="">اختر التصنيف</option>
-                   {config.subscriptionCategories.filter(c => !config.hiddenOptions?.subscriptionCategories?.includes(c)).map(c => (
-                     <option key={c} value={c}>{c}</option>
-                   ))}
-                </select>
-             </div>
-
-             <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">دورة الفوترة</label>
-                <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
-                   value={newSub.billingCycle || ''} onChange={e => setNewSub({...newSub, billingCycle: e.target.value as BillingCycle})}>
-                   <option value="">اختر الدورة</option>
-                   {Object.values(BillingCycle).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-             </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><DollarSign size={16}/> تفاصيل الفترة الحالية (First Renewal)</h4>
-             <div className="grid grid-cols-2 gap-4">
-                {/* ... Dates ... */}
-                <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">تاريخ البداية</label>
-                   <input type="date" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
-                      value={newRenewal.startDate || ''} onChange={e => setNewRenewal({...newRenewal, startDate: e.target.value})} />
-                </div>
-                <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">تاريخ النهاية</label>
-                   <input type="date" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
-                      value={newRenewal.endDate || ''} onChange={e => setNewRenewal({...newRenewal, endDate: e.target.value})} />
-                </div>
-                
-                {canSeeCosts ? (
-                    <>
-                        <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة</label>
-                        <input type="number" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
-                            value={newRenewal.cost || ''} onChange={e => setNewRenewal({...newRenewal, cost: parseFloat(e.target.value)})} />
-                        </div>
-                        <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">العملة</label>
-                        <select className="w-full p-2 rounded-lg border border-slate-200 bg-white text-black"
-                            value={newRenewal.currency || 'SAR'} onChange={e => setNewRenewal({...newRenewal, currency: e.target.value})}>
-                            <option value="SAR">SAR</option>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                        </select>
-                        </div>
-                    </>
-                ) : (
-                    <div className="col-span-2 flex items-center gap-2 text-slate-400 text-sm bg-slate-100 p-2 rounded-lg">
-                        <Lock size={16} />
-                        لا تملك صلاحية لإدخال أو عرض التكاليف المالية.
-                    </div>
-                )}
-             </div>
-          </div>
-
-          <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">حفظ الاشتراك</button>
-       </form>
-    </div>
-  );
-
-  const RenewalWizard = () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-xl mx-auto animate-fade-in">
-        <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-             <div className="bg-emerald-100 text-emerald-600 p-3 rounded-full">
-                 <RotateCcw size={24} />
-             </div>
-             <div>
-                 <h2 className="text-xl font-bold text-slate-800">تجديد الاشتراك</h2>
-                 <p className="text-slate-500 text-sm">{selectedSub?.name}</p>
-             </div>
-        </div>
-
-        <form onSubmit={handleRenewSub} className="space-y-5">
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-sm text-amber-800">
-                سيتم إضافة سجل تجديد جديد وتحديث تاريخ الانتهاء الرئيسي للاشتراك.
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">بداية الفترة</label>
-                   <input type="date" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                      value={newRenewal.startDate || ''} onChange={e => setNewRenewal({...newRenewal, startDate: e.target.value})} />
-                </div>
-                <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">نهاية الفترة</label>
-                   <input type="date" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                      value={newRenewal.endDate || ''} onChange={e => setNewRenewal({...newRenewal, endDate: e.target.value})} />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                {canSeeCosts ? (
-                    <>
-                        <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة الجديدة</label>
-                        <input type="number" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                            value={newRenewal.cost || ''} onChange={e => setNewRenewal({...newRenewal, cost: parseFloat(e.target.value)})} />
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex items-center gap-2 text-slate-400 text-sm bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <Lock size={16} /> التكلفة مخفية
-                    </div>
-                )}
-                <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">عدد المقاعد/الرخص</label>
-                   <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
-                      value={newRenewal.quantity || ''} onChange={e => setNewRenewal({...newRenewal, quantity: parseFloat(e.target.value)})} />
-                </div>
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">ملاحظات (اختياري)</label>
-                <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" rows={2}
-                   value={newRenewal.notes || ''} onChange={e => setNewRenewal({...newRenewal, notes: e.target.value})} 
-                   placeholder="سبب التغيير في السعر، رقم الفاتورة..."
-                />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setView('detail')} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">إلغاء</button>
-                <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700">تأكيد التجديد</button>
-            </div>
-        </form>
-    </div>
-  );
 
   const DetailView = () => {
     if (!selectedSub) return null;
@@ -442,29 +306,45 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initia
                         <th className="px-6 py-4">النوع</th>
                         <th className="px-6 py-4">التجديد القادم</th>
                         <th className="px-6 py-4">الحالة</th>
-                        <th className="px-6 py-4"></th>
+                        <th className="px-6 py-4">الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {(paginatedItems as Subscription[]).map((sub) => (
-                        <tr key={sub.id} onClick={() => { setSelectedSub(sub); setView('detail'); }} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                            <td className="px-6 py-4">
+                        <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 cursor-pointer" onClick={() => { setSelectedSub(sub); setView('detail'); }}>
                                 <p className="font-bold text-slate-800 text-sm">{sub.name}</p>
                                 <p className="text-xs text-slate-500">{sub.vendor}</p>
                             </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">
+                            <td className="px-6 py-4 text-sm text-slate-600 cursor-pointer" onClick={() => { setSelectedSub(sub); setView('detail'); }}>
                                 {sub.type}
                                 <span className="block text-[10px] text-slate-400">{sub.billingCycle}</span>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-6 py-4 cursor-pointer" onClick={() => { setSelectedSub(sub); setView('detail'); }}>
                                 <span className="font-mono text-slate-700 text-sm">{sub.nextRenewalDate}</span>
                                 <div className="text-[10px] text-slate-400 mt-1">المتبقي: {getDaysRemaining(sub.nextRenewalDate)} يوم</div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-6 py-4 cursor-pointer" onClick={() => { setSelectedSub(sub); setView('detail'); }}>
                                 {getStatusBadge(sub)}
                             </td>
-                            <td className="px-6 py-4 text-center text-slate-400">
-                                <ArrowRight size={16} />
+                            <td className="px-6 py-4">
+                                <div className="flex items-center gap-2 justify-center">
+                                    <button
+                                        onClick={() => { setSelectedSub(sub); setView('detail'); }}
+                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="عرض التفاصيل"
+                                    >
+                                        <ArrowRight size={16} />
+                                    </button>
+                                    {/* TEMP: Show always for testing */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(sub); }}
+                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="حذف"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -511,10 +391,168 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ initia
 
   return (
     <div className="space-y-6">
-       {view === 'create' ? <CreateView /> : 
-        view === 'detail' ? <DetailView /> : 
-        view === 'renew' ? <RenewalWizard /> : 
-        <ListView />}
+       {view === 'create' && (
+         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-2xl mx-auto animate-fade-in">
+           <div className="flex items-center justify-between mb-6">
+               <h2 className="text-xl font-bold text-slate-800">إضافة اشتراك / ترخيص جديد</h2>
+               <button onClick={() => setView('list')} className="text-slate-400 hover:text-slate-600">إلغاء</button>
+           </div>
+           <form onSubmit={handleCreateSub} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">اسم الاشتراك</label>
+                    <input required type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                       value={newSub.name || ''} onChange={e => setNewSub(prev => ({...prev, name: e.target.value}))} placeholder="مثال: Adobe CC" />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">المزود (Vendor)</label>
+                    <input required type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" 
+                       value={newSub.vendor || ''} onChange={e => setNewSub(prev => ({...prev, vendor: e.target.value}))} />
+                 </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">النوع</label>
+                    <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
+                       value={newSub.type || ''} onChange={e => setNewSub(prev => ({...prev, type: e.target.value as SubscriptionType}))}>
+                       <option value="">اختر النوع</option>
+                       {Object.values(SubscriptionType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                 </div>
+                 
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">التصنيف (Category)</label>
+                    <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
+                       value={newSub.category || ''} onChange={e => setNewSub(prev => ({...prev, category: e.target.value}))}>
+                       <option value="">اختر التصنيف</option>
+                       {visibleCategories.map(c => (
+                         <option key={c} value={c}>{c}</option>
+                       ))}
+                    </select>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">دورة الفوترة</label>
+                    <select required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-black"
+                       value={newSub.billingCycle || ''} onChange={e => setNewSub(prev => ({...prev, billingCycle: e.target.value as BillingCycle}))}>
+                       <option value="">اختر الدورة</option>
+                       {Object.values(BillingCycle).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                 </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><DollarSign size={16}/> تفاصيل الفترة الحالية (First Renewal)</h4>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1">تاريخ البداية</label>
+                       <input type="date" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
+                          value={newRenewal.startDate || ''} onChange={e => setNewRenewal(prev => ({...prev, startDate: e.target.value}))} />
+                    </div>
+                    <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1">تاريخ النهاية</label>
+                       <input type="date" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
+                          value={newRenewal.endDate || ''} onChange={e => setNewRenewal(prev => ({...prev, endDate: e.target.value}))} />
+                    </div>
+                    
+                    {canSeeCosts ? (
+                        <>
+                            <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة</label>
+                            <input type="number" required className="w-full p-2 rounded-lg border border-slate-200 text-slate-800 bg-white"
+                                value={newRenewal.cost || ''} onChange={e => setNewRenewal(prev => ({...prev, cost: parseFloat(e.target.value)}))} />
+                            </div>
+                            <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">العملة</label>
+                            <select className="w-full p-2 rounded-lg border border-slate-200 bg-white text-black"
+                                value={newRenewal.currency || 'SAR'} onChange={e => setNewRenewal(prev => ({...prev, currency: e.target.value}))}>
+                                <option value="SAR">SAR</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                            </select>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="col-span-2 flex items-center gap-2 text-slate-400 text-sm bg-slate-100 p-2 rounded-lg">
+                            <Lock size={16} />
+                            لا تملك صلاحية لإدخال أو عرض التكاليف المالية.
+                        </div>
+                    )}
+                 </div>
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">حفظ الاشتراك</button>
+           </form>
+         </div>
+       )}
+
+       {view === 'renew' && (
+         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-xl mx-auto animate-fade-in">
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                 <div className="bg-emerald-100 text-emerald-600 p-3 rounded-full">
+                     <RotateCcw size={24} />
+                 </div>
+                 <div>
+                     <h2 className="text-xl font-bold text-slate-800">تجديد الاشتراك</h2>
+                     <p className="text-slate-500 text-sm">{selectedSub?.name}</p>
+                 </div>
+            </div>
+
+            <form onSubmit={handleRenewSub} className="space-y-5">
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-sm text-amber-800">
+                    سيتم إضافة سجل تجديد جديد وتحديث تاريخ الانتهاء الرئيسي للاشتراك.
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1">بداية الفترة</label>
+                       <input type="date" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                          value={newRenewal.startDate || ''} onChange={e => setNewRenewal(prev => ({...prev, startDate: e.target.value}))} />
+                    </div>
+                    <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1">نهاية الفترة</label>
+                       <input type="date" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                          value={newRenewal.endDate || ''} onChange={e => setNewRenewal(prev => ({...prev, endDate: e.target.value}))} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    {canSeeCosts ? (
+                        <>
+                            <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة الجديدة</label>
+                            <input type="number" required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                                value={newRenewal.cost || ''} onChange={e => setNewRenewal(prev => ({...prev, cost: parseFloat(e.target.value)}))} />
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-2 text-slate-400 text-sm bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <Lock size={16} /> التكلفة مخفية
+                        </div>
+                    )}
+                    <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1">عدد المقاعد/الرخص</label>
+                       <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800"
+                          value={newRenewal.quantity || ''} onChange={e => setNewRenewal(prev => ({...prev, quantity: parseFloat(e.target.value)}))} />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">ملاحظات (اختياري)</label>
+                    <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800" rows={2}
+                       value={newRenewal.notes || ''} onChange={e => setNewRenewal(prev => ({...prev, notes: e.target.value}))} 
+                       placeholder="سبب التغيير في السعر، رقم الفاتورة..."
+                    />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setView('detail')} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">إلغاء</button>
+                    <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700">تأكيد التجديد</button>
+                </div>
+            </form>
+         </div>
+       )}
+
+       {view === 'detail' && <DetailView />}
+       {view === 'list' && <ListView />}
     </div>
   );
 };

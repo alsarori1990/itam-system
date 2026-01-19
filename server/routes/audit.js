@@ -9,7 +9,8 @@ const router = express.Router();
 // @access  Private
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const logs = await Audit.find().sort({ timestamp: -1 }).limit(100);
+    const limit = req.query.limit ? parseInt(req.query.limit) : 1000;
+    const logs = await Audit.find().sort({ timestamp: -1 }).limit(limit);
     res.json(logs);
   } catch (error) {
     console.error('Error fetching audit logs:', error);

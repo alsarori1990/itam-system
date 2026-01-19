@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Box, PlusCircle, BarChart3, Settings, LifeBuoy, CreditCard, LogOut, UserCircle, Users, Power, Smartphone, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Box, PlusCircle, BarChart3, Settings, LifeBuoy, CreditCard, LogOut, UserCircle, Users, Power, Smartphone, Menu, X, Mail, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TicketStatus, UserRole } from '../types';
 
@@ -24,12 +24,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
         visible: hasPermission('tickets', 'view'),
         badge: newTicketsCount > 0 ? newTicketsCount : undefined
     },
-    { id: 'assets', label: 'قائمة الأصول', icon: Box, visible: hasPermission('assets', 'view') },
+    { id: 'assetlist', label: 'قائمة الأصول', icon: Box, visible: hasPermission('assets', 'view') },
     { id: 'subscriptions', label: 'الاشتراكات والتراخيص', icon: CreditCard, visible: hasPermission('subscriptions', 'view') },
     { id: 'sim-cards', label: 'شرائح الاتصال', icon: Smartphone, visible: hasPermission('subscriptions', 'view') },
     { id: 'add-asset', label: 'تسجيل أصل', icon: PlusCircle, visible: hasPermission('assets', 'create') },
     { id: 'reports', label: 'التقارير', icon: BarChart3, visible: hasPermission('reports', 'view') },
     { id: 'users', label: 'المستخدمين', icon: Users, visible: currentUser?.roles?.includes(UserRole.SUPER_ADMIN) ?? false },
+    { id: 'email-accounts', label: 'حسابات البريد', icon: Mail, visible: hasPermission('settings', 'update') },
+    { id: 'email-templates', label: 'قوالب البريد', icon: FileText, visible: hasPermission('settings', 'update') },
     { id: 'settings', label: 'الإعدادات', icon: Settings, visible: hasPermission('settings', 'update') },
   ];
 
